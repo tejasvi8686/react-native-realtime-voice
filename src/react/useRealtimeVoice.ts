@@ -280,7 +280,7 @@ function mergeConfig(
 
   if (!merged.auth) {
     throw new Error(
-      "[realtime-voice] No credentials. Pass `auth` to useRealtimeVoice(), or " +
+      "[react-native-realtime-voice] No credentials. Pass `auth` to useRealtimeVoice(), or " +
         "wrap your app in <RealtimeVoiceProvider auth={...}>.",
     );
   }

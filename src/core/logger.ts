@@ -20,7 +20,7 @@ const LEVEL_ORDER: Record<Exclude<LogLevel, "silent">, number> = {
   error: 40,
 };
 
-const PREFIX = "[realtime-voice]";
+const PREFIX = "[react-native-realtime-voice]";
 
 export function createLogger(level: LogLevel = "silent"): Logger {
   const threshold = level === "silent" ? Infinity : LEVEL_ORDER[level];

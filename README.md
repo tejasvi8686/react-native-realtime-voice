@@ -1,4 +1,4 @@
-# realtime-voice
+# react-native-realtime-voice
 
 Voice-to-voice agents for **React Native / Expo**, on the OpenAI Realtime API over WebRTC.
 
@@ -20,13 +20,13 @@ const voice = useRealtimeVoice({
 
 ```bash
 # from npm (once published)
-npx expo install realtime-voice
+npx expo install react-native-realtime-voice
 
 # or straight from GitHub — no publish required
-npm install github:tejasvi8686/realtime-voice
+npm install github:tejasvi8686/react-native-realtime-voice
 
 # pin to a tag or commit for reproducible builds
-npm install github:tejasvi8686/realtime-voice#v0.1.0
+npm install github:tejasvi8686/react-native-realtime-voice#v0.1.0
 ```
 
 A git install compiles itself during `npm install` via the `prepare` script, so
@@ -44,7 +44,7 @@ npx expo install @livekit/react-native-webrtc
 npx expo install react-native-incall-manager
 ```
 
-Add the config plugins to `app.json`. The `realtime-voice` plugin writes the microphone permission and Android audio permissions for you:
+Add the config plugins to `app.json`. The `react-native-realtime-voice` plugin writes the microphone permission and Android audio permissions for you:
 
 ```json
 {
@@ -52,7 +52,7 @@ Add the config plugins to `app.json`. The `realtime-voice` plugin writes the mic
     "plugins": [
       "@config-plugins/react-native-webrtc",
       [
-        "realtime-voice",
+        "react-native-realtime-voice",
         {
           "microphonePermission": "We use your mic so you can talk to your coach.",
           "backgroundAudio": false
@@ -72,8 +72,8 @@ Once, at app start, before the first connection:
 
 ```ts
 // App.tsx — pick the line matching the package you installed
-import "realtime-voice/webrtc/rn"; // react-native-webrtc
-// import "realtime-voice/webrtc/livekit";  // @livekit/react-native-webrtc
+import "react-native-realtime-voice/webrtc/rn"; // react-native-webrtc
+// import "react-native-realtime-voice/webrtc/livekit";  // @livekit/react-native-webrtc
 ```
 
 This exists because Metro resolves `require` statically: the package cannot `try/catch` an optional native module, so you point it at the one you have. The adapter file is the only place either package is referenced, so the other is never bundled.
@@ -104,7 +104,7 @@ The package caches the token and re-mints it automatically when it nears expiry 
 Server side, `mintEphemeralToken` is exported for your backend (see [`examples/token-endpoint/`](examples/token-endpoint)):
 
 ```ts
-import { mintEphemeralToken } from "realtime-voice";
+import { mintEphemeralToken } from "react-native-realtime-voice";
 
 const token = await mintEphemeralToken({
   apiKey: process.env.OPENAI_API_KEY!,
@@ -136,7 +136,7 @@ An `sk-...` key in your app is extractable from any shipped build in minutes. Th
 A tool owns its schema **and** its handler. No separate registry, no `switch` on tool names.
 
 ```ts
-import { defineTool } from "realtime-voice";
+import { defineTool } from "react-native-realtime-voice";
 import { z } from "zod";
 
 const logWaterTool = defineTool({
@@ -258,7 +258,7 @@ const voice = useRealtimeVoice({ instructions, tools });
 Optional, from a separate subpath — import nothing and none of it ships:
 
 ```tsx
-import { VoiceAgentView, VoiceOrb, MicButton, TranscriptView } from "realtime-voice/ui";
+import { VoiceAgentView, VoiceOrb, MicButton, TranscriptView } from "react-native-realtime-voice/ui";
 
 <VoiceAgentView voice={voice} title="Coach" transcriptVariant="caption" theme={{ accent: "#55B3FE" }} />
 ```

@@ -2,7 +2,7 @@
  * Adapter for `react-native-webrtc`.
  *
  * ```ts
- * import "realtime-voice/webrtc/rn";
+ * import "react-native-realtime-voice/webrtc/rn";
  * ```
  *
  * This is the only file that references `react-native-webrtc`, so apps using

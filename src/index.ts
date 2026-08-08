@@ -1,5 +1,5 @@
 /**
- * realtime-voice
+ * react-native-realtime-voice
  *
  * Voice-to-voice agents for React Native / Expo on the OpenAI Realtime API.
  */

@@ -46,7 +46,7 @@ export class Emitter<EventMap extends Record<string, unknown>> {
         (listener as Listener<EventMap[K]>)(payload);
       } catch (e) {
         // A throwing listener must not tear down the session.
-        console.warn("[realtime-voice] listener threw:", e);
+        console.warn("[react-native-realtime-voice] listener threw:", e);
       }
     }
   }
