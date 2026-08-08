@@ -45,11 +45,15 @@ jobs:
         with:
           fetch-depth: 0
 
+      # Deliberately no `registry-url`. That option makes setup-node write an
+      # .npmrc containing `//registry.npmjs.org/:_authToken=${NODE_AUTH_TOKEN}`
+      # plus `always-auth=true`. With no token in the environment that resolves
+      # to empty credentials, and npm then skips the OIDC exchange entirely and
+      # fails as unauthenticated. Trusted publishing needs a clean auth config.
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
-          registry-url: https://registry.npmjs.org
 
       # Trusted publishing landed in npm 11.5.1, and Node 22 ships an older
       # npm. Pinned to the 11.x line rather than @latest: npm 12 requires a
@@ -58,7 +62,9 @@ jobs:
       - name: Ensure npm supports trusted publishing
         run: |
           npm install -g npm@^11
-          npm --version
+          echo "npm $(npm --version) (trusted publishing needs >= 11.5.1)"
+          echo "--- effective npm auth config ---"
+          npm config list | grep -iE "registry|auth" || echo "(no auth config — correct for OIDC)"
 
       - run: npm ci
 
