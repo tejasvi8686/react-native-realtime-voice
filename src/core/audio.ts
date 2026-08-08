@@ -1,5 +1,5 @@
 /**
- * Audio    routing.
+ * Audio      routing.
  *
  * On a phone, a WebRTC voice call defaults to the earpiece — the user has to
  * hold the device to their ear to hear the agent. Routing to the loudspeaker is
