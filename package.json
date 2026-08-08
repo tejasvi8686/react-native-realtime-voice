@@ -20,29 +20,53 @@
   },
   "main": "./lib/commonjs/index.js",
   "module": "./lib/module/index.js",
-  "types": "./lib/typescript/index.d.ts",
+  "types": "./lib/typescript/commonjs/index.d.ts",
   "react-native": "./src/index.ts",
   "source": "./src/index.ts",
   "exports": {
     ".": {
-      "types": "./lib/typescript/index.d.ts",
       "react-native": "./src/index.ts",
-      "default": "./lib/module/index.js"
+      "import": {
+        "types": "./lib/typescript/module/index.d.ts",
+        "default": "./lib/module/index.js"
+      },
+      "require": {
+        "types": "./lib/typescript/commonjs/index.d.ts",
+        "default": "./lib/commonjs/index.js"
+      }
     },
     "./ui": {
-      "types": "./lib/typescript/ui/index.d.ts",
       "react-native": "./src/ui/index.ts",
-      "default": "./lib/module/ui/index.js"
+      "import": {
+        "types": "./lib/typescript/module/ui/index.d.ts",
+        "default": "./lib/module/ui/index.js"
+      },
+      "require": {
+        "types": "./lib/typescript/commonjs/ui/index.d.ts",
+        "default": "./lib/commonjs/ui/index.js"
+      }
     },
     "./webrtc/livekit": {
-      "types": "./lib/typescript/webrtc/livekit.d.ts",
       "react-native": "./src/webrtc/livekit.ts",
-      "default": "./lib/module/webrtc/livekit.js"
+      "import": {
+        "types": "./lib/typescript/module/webrtc/livekit.d.ts",
+        "default": "./lib/module/webrtc/livekit.js"
+      },
+      "require": {
+        "types": "./lib/typescript/commonjs/webrtc/livekit.d.ts",
+        "default": "./lib/commonjs/webrtc/livekit.js"
+      }
     },
     "./webrtc/rn": {
-      "types": "./lib/typescript/webrtc/rn.d.ts",
       "react-native": "./src/webrtc/rn.ts",
-      "default": "./lib/module/webrtc/rn.js"
+      "import": {
+        "types": "./lib/typescript/module/webrtc/rn.d.ts",
+        "default": "./lib/module/webrtc/rn.js"
+      },
+      "require": {
+        "types": "./lib/typescript/commonjs/webrtc/rn.d.ts",
+        "default": "./lib/commonjs/webrtc/rn.js"
+      }
     },
     "./app.plugin.js": "./app.plugin.js",
     "./package.json": "./package.json"
@@ -100,13 +124,13 @@
       [
         "commonjs",
         {
-          "esm": false
+          "esm": true
         }
       ],
       [
         "module",
         {
-          "esm": false
+          "esm": true
         }
       ],
       [
