@@ -1,5 +1,5 @@
 {
-  "name": "react-native-realtime-voice",
+  "name": "@tejasvi8686/realtime-voice",
   "version": "0.1.0",
   "description": "Headless voice-to-voice agent for React Native / Expo, powered by the OpenAI Realtime API over WebRTC. Ephemeral-token auth, colocated tool calling, optional themed UI.",
   "keywords": [
@@ -16,7 +16,7 @@
   "author": "Tejasvi Raj",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/tejasvi8686/react-native-realtime-voice.git"
+    "url": "git+https://github.com/tejasvi8686/realtime-voice.git"
   },
   "main": "./lib/commonjs/index.js",
   "module": "./lib/module/index.js",
@@ -119,5 +119,9 @@
   ],
   "publishConfig": {
     "access": "public"
-  }
+  },
+  "bugs": {
+    "url": "https://github.com/tejasvi8686/realtime-voice/issues"
+  },
+  "homepage": "https://github.com/tejasvi8686/realtime-voice#readme"
 }

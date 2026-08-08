@@ -5,7 +5,7 @@
  * side-effect import at app start is all that is needed:
  *
  * ```ts
- * import "react-native-realtime-voice/webrtc/livekit";
+ * import "@tejasvi8686/realtime-voice/webrtc/livekit";
  * ```
  *
  * This is the only file that references the LiveKit package, so apps using

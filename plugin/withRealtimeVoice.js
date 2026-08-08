@@ -1,5 +1,5 @@
 /**
- * Expo config plugin for react-native-realtime-voice.
+ * Expo config plugin for @tejasvi8686/realtime-voice.
  *
  * Applies the native configuration a WebRTC voice session needs, so consumers
  * do not have to hand-copy Info.plist keys and Android permissions:
@@ -12,7 +12,7 @@
  *
  * Usage in app.json:
  *
- *   ["react-native-realtime-voice", {
+ *   ["@tejasvi8686/realtime-voice", {
  *     "microphonePermission": "We use the mic so you can talk to your coach.",
  *     "backgroundAudio": false
  *   }]
@@ -73,6 +73,6 @@ function withRealtimeVoice(config, props = {}) {
 
 module.exports = createRunOncePlugin(
   withRealtimeVoice,
-  "react-native-realtime-voice",
+  "@tejasvi8686/realtime-voice",
   "0.1.0",
 );

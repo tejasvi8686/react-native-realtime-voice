@@ -10,13 +10,13 @@
  * already have, once, at app start:
  *
  * ```ts
- * import { registerWebRTC } from "react-native-realtime-voice";
+ * import { registerWebRTC } from "@tejasvi8686/realtime-voice";
  * import * as webrtc from "@livekit/react-native-webrtc";
  * registerWebRTC(webrtc);
  * ```
  *
  * Or import one of the prebuilt adapters, which contain the only hard import:
- * `react-native-realtime-voice/webrtc/livekit` or `.../webrtc/rn`.
+ * `@tejasvi8686/realtime-voice/webrtc/livekit` or `.../webrtc/rn`.
  */
 
 import { RealtimeVoiceError } from "./errors";
@@ -63,11 +63,11 @@ export function resolveWebRTC(override?: WebRTCModule): WebRTCModule {
     throw new RealtimeVoiceError(
       "no-webrtc-module",
       "No WebRTC module registered. Add this once at app start:\n\n" +
-        '  import { registerWebRTC } from "react-native-realtime-voice";\n' +
+        '  import { registerWebRTC } from "@tejasvi8686/realtime-voice";\n' +
         '  import * as webrtc from "@livekit/react-native-webrtc";\n' +
         "  registerWebRTC(webrtc);\n\n" +
         "Or import the adapter: " +
-        'import "react-native-realtime-voice/webrtc/livekit";',
+        'import "@tejasvi8686/realtime-voice/webrtc/livekit";',
     );
   }
   return module;

@@ -1,5 +1,5 @@
 /**
- * react-native-realtime-voice
+ * @tejasvi8686/realtime-voice
  *
  * Voice-to-voice agents for React Native / Expo on the OpenAI Realtime API.
  */

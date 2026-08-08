@@ -1,4 +1,4 @@
-# react-native-realtime-voice
+# @tejasvi8686/realtime-voice
 
 Voice-to-voice agents for **React Native / Expo**, on the OpenAI Realtime API over WebRTC.
 
@@ -19,7 +19,7 @@ const voice = useRealtimeVoice({
 ## Install
 
 ```bash
-npx expo install react-native-realtime-voice
+npx expo install @tejasvi8686/realtime-voice
 ```
 
 You also need a WebRTC implementation and (optionally) audio routing:
@@ -42,7 +42,7 @@ Add the config plugins to `app.json`. The `realtime-voice` plugin writes the mic
     "plugins": [
       "@config-plugins/react-native-webrtc",
       [
-        "react-native-realtime-voice",
+        "@tejasvi8686/realtime-voice",
         {
           "microphonePermission": "We use your mic so you can talk to your coach.",
           "backgroundAudio": false
@@ -62,8 +62,8 @@ Once, at app start, before the first connection:
 
 ```ts
 // App.tsx — pick the line matching the package you installed
-import "react-native-realtime-voice/webrtc/rn"; // react-native-webrtc
-// import "react-native-realtime-voice/webrtc/livekit";  // @livekit/react-native-webrtc
+import "@tejasvi8686/realtime-voice/webrtc/rn"; // react-native-webrtc
+// import "@tejasvi8686/realtime-voice/webrtc/livekit";  // @livekit/react-native-webrtc
 ```
 
 This exists because Metro resolves `require` statically: the package cannot `try/catch` an optional native module, so you point it at the one you have. The adapter file is the only place either package is referenced, so the other is never bundled.
@@ -94,7 +94,7 @@ The package caches the token and re-mints it automatically when it nears expiry 
 Server side, `mintEphemeralToken` is exported for your backend (see [`examples/token-endpoint/`](examples/token-endpoint)):
 
 ```ts
-import { mintEphemeralToken } from "react-native-realtime-voice";
+import { mintEphemeralToken } from "@tejasvi8686/realtime-voice";
 
 const token = await mintEphemeralToken({
   apiKey: process.env.OPENAI_API_KEY!,
@@ -126,7 +126,7 @@ An `sk-...` key in your app is extractable from any shipped build in minutes. Th
 A tool owns its schema **and** its handler. No separate registry, no `switch` on tool names.
 
 ```ts
-import { defineTool } from "react-native-realtime-voice";
+import { defineTool } from "@tejasvi8686/realtime-voice";
 import { z } from "zod";
 
 const logWaterTool = defineTool({
@@ -248,7 +248,7 @@ const voice = useRealtimeVoice({ instructions, tools });
 Optional, from a separate subpath — import nothing and none of it ships:
 
 ```tsx
-import { VoiceAgentView, VoiceOrb, MicButton, TranscriptView } from "react-native-realtime-voice/ui";
+import { VoiceAgentView, VoiceOrb, MicButton, TranscriptView } from "@tejasvi8686/realtime-voice/ui";
 
 <VoiceAgentView voice={voice} title="Coach" transcriptVariant="caption" theme={{ accent: "#55B3FE" }} />
 ```
