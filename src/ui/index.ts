@@ -1,5 +1,5 @@
 /**
- * Optional UI kit — `@tejasvi8686/realtime-voice/ui`.
+ * Optional UI kit — `realtime-voice/ui`.
  *
  * Pure React Native: no icon library, no animation library, no gradient
  * library. Import nothing from here and none of it ships in your bundle.

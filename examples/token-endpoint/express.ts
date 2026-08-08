@@ -7,7 +7,7 @@
 // @ts-nocheck — depends on your app's express/auth setup.
 
 import express from "express";
-import { mintEphemeralToken } from "@tejasvi8686/realtime-voice";
+import { mintEphemeralToken } from "realtime-voice";
 
 const app = express();
 
