@@ -1,0 +1,115 @@
+name: CI
+
+# Runs on every push and PR. The publish job only ever runs from main.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    name: Typecheck, build, test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      # `npm ci` triggers the `prepare` script, which builds lib/.
+      - run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Build
+        run: npm run build
+
+      - name: Test
+        run: npm test
+
+  publish:
+    name: Publish to npm
+    needs: test
+    runs-on: ubuntu-latest
+    # Never publish from a pull request, and never from a branch other than main.
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    permissions:
+      contents: write # needed to push the release tag
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          registry-url: https://registry.npmjs.org
+
+      - run: npm ci
+
+      # Publishing is driven by the version field, not by tags. Bump the version
+      # and push; if it already exists on npm this is a no-op rather than a
+      # failed build, because npm versions are immutable.
+      - name: Decide whether to publish
+        id: check
+        run: |
+          LOCAL="$(node -p "require('./package.json').version")"
+          NAME="$(node -p "require('./package.json').name")"
+          REMOTE="$(npm view "$NAME" version 2>/dev/null || echo none)"
+          echo "local=$LOCAL"  >> "$GITHUB_OUTPUT"
+          echo "name=$NAME"    >> "$GITHUB_OUTPUT"
+          if [ "$LOCAL" = "$REMOTE" ]; then
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::$NAME@$LOCAL is already on npm — nothing to publish."
+          else
+            echo "publish=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::Publishing $NAME@$LOCAL (npm currently has $REMOTE)."
+          fi
+
+      # Fail loudly and early rather than part-way through a publish.
+      - name: Require NPM_TOKEN
+        if: steps.check.outputs.publish == 'true'
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          if [ -z "$NODE_AUTH_TOKEN" ]; then
+            echo "::error::NPM_TOKEN secret is not set. Add it under Settings → Secrets and variables → Actions."
+            exit 1
+          fi
+
+      - name: Publish
+        if: steps.check.outputs.publish == 'true'
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: npm publish --access public
+
+      # Tag only after a successful publish, so the tag always points at a
+      # commit that actually shipped.
+      - name: Tag the release
+        if: steps.check.outputs.publish == 'true'
+        run: |
+          TAG="v${{ steps.check.outputs.local }}"
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          if git rev-parse "$TAG" >/dev/null 2>&1; then
+            echo "::notice::Tag $TAG already exists, skipping."
+          else
+            git tag -a "$TAG" -m "$TAG"
+            git push origin "$TAG"
+          fi
+
+      - name: Create GitHub release
+        if: steps.check.outputs.publish == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="v${{ steps.check.outputs.local }}"
+          gh release create "$TAG" \
+            --title "$TAG" \
+            --notes "Published \`${{ steps.check.outputs.name }}@${{ steps.check.outputs.local }}\` to npm." \
+            || echo "::notice::Release $TAG already exists."

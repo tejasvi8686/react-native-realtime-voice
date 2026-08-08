@@ -163,6 +163,13 @@ export class RealtimeSession extends Emitter<SessionEvents> {
   private agentSpeaking = false;
   private userSpeaking = false;
   private transcripts = new Map<string, TranscriptItem>();
+  /**
+   * Last session.update payload sent on the current connection, used to skip
+   * redundant re-sends. Must be cleared whenever a new connection is opened:
+   * a fresh server-side session starts with no config, so the update has to go
+   * out again even though the local config is unchanged.
+   */
+  private lastSessionUpdateJson: string | null = null;
   private usage: UsageSnapshot = {
     inputTokens: 0,
     outputTokens: 0,
@@ -267,6 +274,7 @@ export class RealtimeSession extends Emitter<SessionEvents> {
     this.userSpeaking = false;
     this.micEnabled = true;
     this.connectStartedAt = null;
+    this.lastSessionUpdateJson = null;
     this.setState("idle");
   }
 
@@ -344,6 +352,9 @@ export class RealtimeSession extends Emitter<SessionEvents> {
 
   private async openConnection(): Promise<void> {
     this.connectStartedAt = Date.now();
+    // A new server-side session carries none of our config, so the dedupe
+    // cache must not survive into it.
+    this.lastSessionUpdateJson = null;
     this.setState("authenticating");
 
     try {
@@ -443,6 +454,17 @@ export class RealtimeSession extends Emitter<SessionEvents> {
     if (this.config.maxOutputTokens !== undefined) {
       session.max_output_tokens = this.config.maxOutputTokens;
     }
+
+    // React consumers routinely pass `tools: [a, b]` and `instructions: () => …`
+    // as inline literals, which get a fresh identity on every render. Without
+    // this guard each render would push an identical session.update across the
+    // wire. Compare the resolved payload and send only on a real change.
+    const serialised = JSON.stringify(session);
+    if (serialised === this.lastSessionUpdateJson) {
+      this.logger.debug("Skipping session.update; config unchanged");
+      return;
+    }
+    this.lastSessionUpdateJson = serialised;
 
     this.transport.send({ type: "session.update", session });
   }

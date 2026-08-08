@@ -309,3 +309,25 @@ Events: `stateChange` · `transcript` · `userSpeechStart|Stop` · `agentSpeechS
 ## Licence
 
 MIT
+
+---
+
+## Releasing
+
+Publishing is automated. CI runs typecheck, build and the test suite on every
+push; the publish job compares `package.json`'s version against what is on npm
+and publishes only when they differ.
+
+```bash
+npm version patch --no-git-tag-version   # 0.1.1 → 0.1.2
+git commit -am "fix: ..."
+git push
+```
+
+CI then publishes to npm, creates the `v0.1.2` tag and opens a GitHub release.
+Pushing without a version bump runs the tests and skips publishing, so there is
+no failed build for an ordinary commit.
+
+Requires an `NPM_TOKEN` repository secret (Settings → Secrets and variables →
+Actions) holding an npm **Automation** token — that type bypasses the interactive
+2FA prompt, which CI cannot answer.

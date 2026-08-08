@@ -90,6 +90,7 @@
   },
   "peerDependencies": {
     "@livekit/react-native-webrtc": "*",
+    "expo": "*",
     "react": ">=18.0.0",
     "react-native": ">=0.72.0",
     "react-native-incall-manager": "*",
@@ -107,6 +108,9 @@
       "optional": true
     },
     "zod": {
+      "optional": true
+    },
+    "expo": {
       "optional": true
     }
   },

@@ -217,3 +217,53 @@ function emitServer(event) {
     process.exit(1);
   }
 })();
+
+// ---------------------------------------------------------------------------
+// Regression: identical config must not re-send session.update, but a NEW
+// connection must, because the server session starts with no config.
+// ---------------------------------------------------------------------------
+(async () => {
+  await new Promise((r) => setTimeout(r, 200));
+  console.log("\n== session.update dedupe ==");
+
+  dcListeners = {}; pcListeners = {}; sent.length = 0;
+  const tool = defineTool({
+    name: "ping", description: "d",
+    parameters: { type: "object", properties: {}, required: [] },
+    handler: () => ({}),
+  });
+  const s = new RealtimeSession({
+    auth: { apiKey: "sk-t" }, isDevelopment: true, logLevel: "silent",
+    instructions: () => "same prompt", tools: [tool],
+  });
+  await s.connect();
+  pcInstance.dc.readyState = "open";
+  (dcListeners.open || []).forEach((fn) => fn());
+  await new Promise((r) => setTimeout(r, 30));
+
+  const countUpdates = () => sent.filter((e) => e.type === "session.update").length;
+  check("first connect sends session.update", countUpdates() === 1);
+
+  // Same config again — simulates a React re-render passing new array identity.
+  s.updateConfig({ tools: [tool], instructions: () => "same prompt" });
+  await new Promise((r) => setTimeout(r, 30));
+  check("identical config does NOT re-send", countUpdates() === 1);
+
+  // Genuinely different config must go out.
+  s.updateConfig({ instructions: () => "different prompt" });
+  await new Promise((r) => setTimeout(r, 30));
+  check("changed config DOES re-send", countUpdates() === 2);
+
+  // Reconnect: server session is fresh, so config must be pushed again.
+  await s.disconnect();
+  dcListeners = {}; sent.length = 0;
+  await s.connect();
+  pcInstance.dc.readyState = "open";
+  (dcListeners.open || []).forEach((fn) => fn());
+  await new Promise((r) => setTimeout(r, 30));
+  check("reconnect re-sends config to the fresh session", countUpdates() === 1);
+  await s.disconnect();
+
+  console.log(`\n${assertions - fail.length}/${assertions} passed (incl. dedupe)`);
+  if (fail.length) { console.log("FAILED:", fail.join(", ")); process.exit(1); }
+})();
