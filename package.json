@@ -60,7 +60,8 @@
     "typecheck": "tsc --noEmit",
     "test": "node test/run.cjs",
     "clean": "rm -rf lib",
-    "prepublishOnly": "npm run clean && npm run typecheck && npm run build && npm test"
+    "prepublishOnly": "npm run clean && npm run typecheck && npm run build && npm test",
+    "prepare": "bob build"
   },
   "peerDependencies": {
     "@livekit/react-native-webrtc": "*",
