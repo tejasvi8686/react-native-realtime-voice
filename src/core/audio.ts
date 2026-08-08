@@ -24,9 +24,22 @@ export const noopAudioRouter: AudioRouter = {
   setSpeakerphone: () => {},
 };
 
+/**
+ * Structural match for `react-native-incall-manager`'s default export.
+ *
+ * These mirror that module's real signatures rather than a convenient
+ * approximation. `start` takes an *optional* setup object whose `media` is a
+ * literal union; declaring it as a required `{ media: string }` meant the real
+ * module failed to type-check against this under strictFunctionTypes, which is
+ * the default in any app extending expo/tsconfig.base.
+ */
 export type InCallManagerLike = {
-  start: (options: { media: string; auto?: boolean }) => void;
-  stop: () => void;
+  start: (setup?: {
+    auto?: boolean;
+    media?: "video" | "audio";
+    ringback?: string;
+  }) => void;
+  stop: (setup?: { busytone?: string }) => void;
   setSpeakerphoneOn: (enabled: boolean) => void;
   setForceSpeakerphoneOn: (enabled: boolean) => void;
 };

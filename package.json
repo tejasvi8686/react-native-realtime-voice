@@ -1,6 +1,6 @@
 {
   "name": "react-native-realtime-voice",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "description": "Headless voice-to-voice agent for React Native / Expo, powered by the OpenAI Realtime API over WebRTC. Ephemeral-token auth, colocated tool calling, optional themed UI.",
   "keywords": [
     "openai",
