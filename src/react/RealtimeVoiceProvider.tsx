@@ -40,13 +40,71 @@ export function RealtimeVoiceProvider({
   children,
   ...defaults
 }: RealtimeVoiceDefaults & { children: React.ReactNode }) {
-  // Serialising is not viable here (functions, native modules), so identity is
-  // the contract: pass a stable object or accept re-provides.
-  const value = useMemo(
-    () => defaults,
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    Object.values(defaults),
+  const {
+    auth,
+    model,
+    voice,
+    speed,
+    turnDetection,
+    transcription,
+    noiseReduction,
+    maxOutputTokens,
+    webrtc,
+    iceServers,
+    mediaConstraints,
+    inCallManager,
+    speakerphone,
+    audioRouter,
+    logLevel,
+    reconnect,
+    isDevelopment,
+  } = defaults;
+
+  // The dependency list must be a fixed length on every render. Destructuring
+  // each key explicitly guarantees that; deriving it from the props object
+  // (e.g. Object.values) breaks the moment a consumer spreads a prop
+  // conditionally, and React throws on a deps array that changes size.
+  const value = useMemo<RealtimeVoiceDefaults>(
+    () => ({
+      auth,
+      model,
+      voice,
+      speed,
+      turnDetection,
+      transcription,
+      noiseReduction,
+      maxOutputTokens,
+      webrtc,
+      iceServers,
+      mediaConstraints,
+      inCallManager,
+      speakerphone,
+      audioRouter,
+      logLevel,
+      reconnect,
+      isDevelopment,
+    }),
+    [
+      auth,
+      model,
+      voice,
+      speed,
+      turnDetection,
+      transcription,
+      noiseReduction,
+      maxOutputTokens,
+      webrtc,
+      iceServers,
+      mediaConstraints,
+      inCallManager,
+      speakerphone,
+      audioRouter,
+      logLevel,
+      reconnect,
+      isDevelopment,
+    ],
   );
+
   return (
     <RealtimeVoiceContext.Provider value={value}>
       {children}
