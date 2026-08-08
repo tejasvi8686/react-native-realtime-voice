@@ -19,8 +19,18 @@ const voice = useRealtimeVoice({
 ## Install
 
 ```bash
+# from npm (once published)
 npx expo install @tejasvi8686/realtime-voice
+
+# or straight from GitHub — no publish required
+npm install github:tejasvi8686/realtime-voice
+
+# pin to a tag or commit for reproducible builds
+npm install github:tejasvi8686/realtime-voice#v0.1.0
 ```
+
+A git install compiles itself during `npm install` via the `prepare` script, so
+it produces the same output as the published tarball.
 
 You also need a WebRTC implementation and (optionally) audio routing:
 
