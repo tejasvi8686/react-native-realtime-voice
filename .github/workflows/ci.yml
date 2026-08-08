@@ -37,6 +37,10 @@ jobs:
     runs-on: ubuntu-latest
     # Never publish from a pull request, and never from a branch other than main.
     if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    # NPM_TOKEN is stored as an *environment* secret rather than a repository
+    # secret, and environment secrets are only injected into a job that names
+    # its environment. Without this line `secrets.NPM_TOKEN` resolves to empty.
+    environment: NPM_TOKEN
     permissions:
       contents: write # needed to push the release tag
     steps:
