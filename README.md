@@ -328,6 +328,6 @@ CI then publishes to npm, creates the `v0.1.2` tag and opens a GitHub release.
 Pushing without a version bump runs the tests and skips publishing, so there is
 no failed build for an ordinary commit.
 
-Requires an `NPM_TOKEN` repository secret (Settings → Secrets and variables →
-Actions) holding an npm **Automation** token — that type bypasses the interactive
-2FA prompt, which CI cannot answer.
+Authentication uses npm **trusted publishing** (OIDC) — there is no token to
+store or rotate. Configure it once at npmjs.com → the package → Settings →
+Trusted Publisher, pointing at this repository and `ci.yml`.

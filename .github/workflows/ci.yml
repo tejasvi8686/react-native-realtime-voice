@@ -37,12 +37,9 @@ jobs:
     runs-on: ubuntu-latest
     # Never publish from a pull request, and never from a branch other than main.
     if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
-    # NPM_TOKEN is stored as an *environment* secret rather than a repository
-    # secret, and environment secrets are only injected into a job that names
-    # its environment. Without this line `secrets.NPM_TOKEN` resolves to empty.
-    environment: NPM_TOKEN
     permissions:
-      contents: write # needed to push the release tag
+      contents: write # push the release tag
+      id-token: write # mint the OIDC token npm trusted publishing verifies
     steps:
       - uses: actions/checkout@v4
         with:
@@ -53,6 +50,12 @@ jobs:
           node-version: 20
           cache: npm
           registry-url: https://registry.npmjs.org
+
+      # Trusted publishing landed in npm 11.5.1; Node 20 ships an older npm.
+      - name: Ensure npm supports trusted publishing
+        run: |
+          npm install -g npm@latest
+          npm --version
 
       - run: npm ci
 
@@ -75,21 +78,19 @@ jobs:
             echo "::notice::Publishing $NAME@$LOCAL (npm currently has $REMOTE)."
           fi
 
-      # Fail loudly and early rather than part-way through a publish.
-      - name: Require NPM_TOKEN
-        if: steps.check.outputs.publish == 'true'
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: |
-          if [ -z "$NODE_AUTH_TOKEN" ]; then
-            echo "::error::NPM_TOKEN secret is not set. Add it under Settings → Secrets and variables → Actions."
-            exit 1
-          fi
-
+      # No token. The account has 2FA set to auth-and-writes, so any long-lived
+      # token still demands a one-time password that CI cannot supply. Trusted
+      # publishing authenticates the workflow itself via OIDC instead, which
+      # satisfies 2FA and leaves no credential to leak or rotate.
+      #
+      # Configure once at npmjs.com → the package → Settings → Trusted Publisher:
+      #   Provider   GitHub Actions
+      #   Owner      tejasvi8686
+      #   Repository react-native-realtime-voice
+      #   Workflow   ci.yml
+      #   Environment (leave blank)
       - name: Publish
         if: steps.check.outputs.publish == 'true'
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: npm publish --access public
 
       # Tag only after a successful publish, so the tag always points at a
