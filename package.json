@@ -1,0 +1,123 @@
+{
+  "name": "react-native-realtime-voice",
+  "version": "0.1.0",
+  "description": "Headless voice-to-voice agent for React Native / Expo, powered by the OpenAI Realtime API over WebRTC. Ephemeral-token auth, colocated tool calling, optional themed UI.",
+  "keywords": [
+    "openai",
+    "realtime",
+    "voice",
+    "voice-agent",
+    "webrtc",
+    "react-native",
+    "expo",
+    "speech-to-speech"
+  ],
+  "license": "MIT",
+  "author": "Tejasvi Raj",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/tejasvi8686/react-native-realtime-voice.git"
+  },
+  "main": "./lib/commonjs/index.js",
+  "module": "./lib/module/index.js",
+  "types": "./lib/typescript/index.d.ts",
+  "react-native": "./src/index.ts",
+  "source": "./src/index.ts",
+  "exports": {
+    ".": {
+      "types": "./lib/typescript/index.d.ts",
+      "react-native": "./src/index.ts",
+      "default": "./lib/module/index.js"
+    },
+    "./ui": {
+      "types": "./lib/typescript/ui/index.d.ts",
+      "react-native": "./src/ui/index.ts",
+      "default": "./lib/module/ui/index.js"
+    },
+    "./webrtc/livekit": {
+      "types": "./lib/typescript/webrtc/livekit.d.ts",
+      "react-native": "./src/webrtc/livekit.ts",
+      "default": "./lib/module/webrtc/livekit.js"
+    },
+    "./webrtc/rn": {
+      "types": "./lib/typescript/webrtc/rn.d.ts",
+      "react-native": "./src/webrtc/rn.ts",
+      "default": "./lib/module/webrtc/rn.js"
+    },
+    "./app.plugin.js": "./app.plugin.js",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "src",
+    "lib",
+    "plugin",
+    "app.plugin.js",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "bob build",
+    "typecheck": "tsc --noEmit",
+    "test": "node test/run.cjs",
+    "clean": "rm -rf lib",
+    "prepublishOnly": "npm run clean && npm run typecheck && npm run build && npm test"
+  },
+  "peerDependencies": {
+    "@livekit/react-native-webrtc": "*",
+    "react": ">=18.0.0",
+    "react-native": ">=0.72.0",
+    "react-native-incall-manager": "*",
+    "react-native-webrtc": "*",
+    "zod": ">=3.22.0"
+  },
+  "peerDependenciesMeta": {
+    "@livekit/react-native-webrtc": {
+      "optional": true
+    },
+    "react-native-webrtc": {
+      "optional": true
+    },
+    "react-native-incall-manager": {
+      "optional": true
+    },
+    "zod": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@types/react": "^19.1.0",
+    "react": "19.1.0",
+    "react-native": "0.81.4",
+    "react-native-builder-bob": "^0.40.0",
+    "typescript": "~5.9.2",
+    "zod": "^3.25.76"
+  },
+  "react-native-builder-bob": {
+    "source": "src",
+    "output": "lib",
+    "targets": [
+      [
+        "commonjs",
+        {
+          "esm": false
+        }
+      ],
+      [
+        "module",
+        {
+          "esm": false
+        }
+      ],
+      [
+        "typescript"
+      ]
+    ]
+  },
+  "sideEffects": [
+    "./src/webrtc/*",
+    "./lib/*/webrtc/*"
+  ],
+  "publishConfig": {
+    "access": "public"
+  }
+}
