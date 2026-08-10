@@ -215,7 +215,10 @@ export function useRealtimeVoice(
     [session],
   );
 
-  const sendText = useCallback((text: string) => session.sendText(text), [session]);
+  const sendText = useCallback(
+    (text: string) => session.sendText(text),
+    [session],
+  );
 
   const clearTranscripts = useCallback(() => setTranscripts([]), []);
   const clearError = useCallback(() => setError(null), []);
@@ -288,7 +291,9 @@ function mergeConfig(
 }
 
 /** An explicitly-undefined option must not blank out a provider default. */
-function stripUndefined<T extends Record<string, unknown>>(value: T): Partial<T> {
+function stripUndefined<T extends Record<string, unknown>>(
+  value: T,
+): Partial<T> {
   const out: Record<string, unknown> = {};
   for (const [key, v] of Object.entries(value)) {
     if (v !== undefined) out[key] = v;
@@ -296,7 +301,10 @@ function stripUndefined<T extends Record<string, unknown>>(value: T): Partial<T>
   return out as Partial<T>;
 }
 
-function upsertById(list: TranscriptItem[], item: TranscriptItem): TranscriptItem[] {
+function upsertById(
+  list: TranscriptItem[],
+  item: TranscriptItem,
+): TranscriptItem[] {
   const index = list.findIndex((i) => i.id === item.id);
   if (index === -1) return [...list, item];
   const next = list.slice();

@@ -58,20 +58,28 @@ export function VoiceAgentView({
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.background }, style]}>
+    <View
+      style={[styles.container, { backgroundColor: theme.background }, style]}
+    >
       <View style={styles.header}>
         {title ? (
           <Text
             style={[
               styles.title,
-              { color: theme.text, fontFamily: theme.fontFamilyMedium ?? theme.fontFamily },
+              {
+                color: theme.text,
+                fontFamily: theme.fontFamilyMedium ?? theme.fontFamily,
+              },
             ]}
           >
             {title}
           </Text>
         ) : null}
         <Text
-          style={[styles.status, { color: theme.textMuted, fontFamily: theme.fontFamily }]}
+          style={[
+            styles.status,
+            { color: theme.textMuted, fontFamily: theme.fontFamily },
+          ]}
         >
           {statusLine}
         </Text>
@@ -99,11 +107,18 @@ export function VoiceAgentView({
         <View
           style={[
             styles.errorBanner,
-            { backgroundColor: theme.surface, borderColor: theme.danger, borderRadius: theme.radius },
+            {
+              backgroundColor: theme.surface,
+              borderColor: theme.danger,
+              borderRadius: theme.radius,
+            },
           ]}
         >
           <Text
-            style={[styles.errorText, { color: theme.text, fontFamily: theme.fontFamily }]}
+            style={[
+              styles.errorText,
+              { color: theme.text, fontFamily: theme.fontFamily },
+            ]}
           >
             {voice.error.message}
           </Text>

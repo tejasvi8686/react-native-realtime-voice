@@ -103,10 +103,7 @@ export type RealtimeFunctionTool = {
 };
 
 export type ToolChoice =
-  | "none"
-  | "auto"
-  | "required"
-  | { type: "function"; name: string };
+  "none" | "auto" | "required" | { type: "function"; name: string };
 
 export type Truncation =
   | "auto"
@@ -120,7 +117,11 @@ export type Truncation =
 export type Tracing =
   | "auto"
   | null
-  | { workflow_name?: string; group_id?: string; metadata?: Record<string, unknown> };
+  | {
+      workflow_name?: string;
+      group_id?: string;
+      metadata?: Record<string, unknown>;
+    };
 
 /**
  * The wire-format session object. Consumers do not build this by hand —

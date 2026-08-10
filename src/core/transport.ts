@@ -34,7 +34,11 @@ export type TransportEvents = {
 export type TransportOptions = {
   logger: Logger;
   webrtc?: WebRTCModule;
-  iceServers?: { urls: string | string[]; username?: string; credential?: string }[];
+  iceServers?: {
+    urls: string | string[];
+    username?: string;
+    credential?: string;
+  }[];
   mediaConstraints?: Record<string, unknown>;
 };
 
@@ -182,7 +186,9 @@ export class WebRTCTransport extends Emitter<TransportEvents> {
 
   private attachDataChannelListeners(dc: any): void {
     dc.addEventListener("open", () => this.emit("dataChannelOpen", undefined));
-    dc.addEventListener("close", () => this.emit("dataChannelClose", undefined));
+    dc.addEventListener("close", () =>
+      this.emit("dataChannelClose", undefined),
+    );
     dc.addEventListener("message", (e: any) => {
       const data = e?.data;
       if (typeof data !== "string") return;
@@ -238,7 +244,7 @@ export class WebRTCTransport extends Emitter<TransportEvents> {
           "auth-failed",
           credential.kind === "ephemeral"
             ? "The ephemeral token was rejected. It may have expired — tokens are " +
-              "short-lived, so mint one immediately before connecting."
+                "short-lived, so mint one immediately before connecting."
             : "The OpenAI API key was rejected. Check it at platform.openai.com.",
           { retryable: credential.kind === "ephemeral" },
         );

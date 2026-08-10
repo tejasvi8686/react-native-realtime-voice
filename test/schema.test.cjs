@@ -18,8 +18,14 @@ const tool = defineTool({
   parameters: schema,
   handler: async (args) => ({ ok: true, args }),
 });
-console.log("\nvalidator valid  :", JSON.stringify(tool.validator.safeParse({ amount_ml: 250, tags: [] })));
-console.log("validator invalid:", tool.validator.safeParse({ amount_ml: "lots", tags: [] }).success);
+console.log(
+  "\nvalidator valid  :",
+  JSON.stringify(tool.validator.safeParse({ amount_ml: 250, tags: [] })),
+);
+console.log(
+  "validator invalid:",
+  tool.validator.safeParse({ amount_ml: "lots", tags: [] }).success,
+);
 
 // zod 4 layout, shipped inside zod 3.25 at the /v4 subpath
 const z4 = require("zod/v4");

@@ -95,6 +95,10 @@ export type {
 export type { ClientEvent, ServerEvent } from "./core/events";
 
 // ---- Advanced ----
-export { WebRTCTransport, type TransportEvents, type TransportOptions } from "./core/transport";
+export {
+  WebRTCTransport,
+  type TransportEvents,
+  type TransportOptions,
+} from "./core/transport";
 export { Emitter, type Listener, type Unsubscribe } from "./core/emitter";
 export { zodToJSONSchema, type ParsableSchema } from "./core/schema";

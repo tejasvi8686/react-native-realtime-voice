@@ -17,7 +17,10 @@ export type ParsableSchema = {
   ) => { success: true; data: unknown } | { success: false; error: unknown };
 };
 
-type ZodLike = { _def?: Record<string, any>; _zod?: { def?: Record<string, any> } };
+type ZodLike = {
+  _def?: Record<string, any>;
+  _zod?: { def?: Record<string, any> };
+};
 
 export function isZodSchema(value: unknown): value is ZodLike & ParsableSchema {
   if (typeof value !== "object" || value === null) return false;
@@ -137,11 +140,16 @@ function convertNode(schema: any, path: string): JSONSchema {
     case "literal": {
       const values = def.raw.values ?? [def.raw.value];
       const first = Array.isArray(values) ? values[0] : values;
-      return described({ type: typeof first === "number" ? "number" : "string", enum: Array.isArray(values) ? values : [values] });
+      return described({
+        type: typeof first === "number" ? "number" : "string",
+        enum: Array.isArray(values) ? values : [values],
+      });
     }
     case "enum": {
       const entries = def.raw.entries ?? def.raw.values;
-      const values = Array.isArray(entries) ? entries : Object.values(entries ?? {});
+      const values = Array.isArray(entries)
+        ? entries
+        : Object.values(entries ?? {});
       return described({ type: "string", enum: values });
     }
     case "nativeenum": {
@@ -166,7 +174,9 @@ function convertNode(schema: any, path: string): JSONSchema {
       const literals = options
         .map((o) => readDef(o))
         .filter((d): d is Def => d?.kind === "literal")
-        .map((d) => (Array.isArray(d.raw.values) ? d.raw.values[0] : d.raw.value));
+        .map((d) =>
+          Array.isArray(d.raw.values) ? d.raw.values[0] : d.raw.value,
+        );
       if (literals.length === options.length && literals.length > 0) {
         return described({ type: "string", enum: literals });
       }

@@ -120,9 +120,8 @@ export class CredentialProvider {
   private isExpired(credential: ResolvedCredential): boolean {
     if (credential.expiresAt == null) return false;
     const skew =
-      (isApiKeyAuth(this.auth)
-        ? 0
-        : (this.auth.refreshSkewSeconds ?? 30)) * 1000;
+      (isApiKeyAuth(this.auth) ? 0 : (this.auth.refreshSkewSeconds ?? 30)) *
+      1000;
     return Date.now() + skew >= credential.expiresAt;
   }
 
@@ -173,7 +172,8 @@ export class CredentialProvider {
       );
     }
 
-    const expiresAtSeconds = typeof raw === "string" ? undefined : raw?.expires_at;
+    const expiresAtSeconds =
+      typeof raw === "string" ? undefined : raw?.expires_at;
     return {
       token,
       kind: "ephemeral",

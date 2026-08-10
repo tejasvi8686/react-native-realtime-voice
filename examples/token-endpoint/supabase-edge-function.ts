@@ -57,29 +57,32 @@ Deno.serve(async (req: Request) => {
 
   // 3. Mint. Model and voice are fixed here on purpose: the client cannot
   //    upgrade itself to a pricier model, and branding stays consistent.
-  const response = await fetch("https://api.openai.com/v1/realtime/client_secrets", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${OPENAI_API_KEY}`,
-      "Content-Type": "application/json",
-      // Hashed id helps OpenAI's abuse monitoring without leaking the real one.
-      "OpenAI-Safety-Identifier": await sha256(user.id),
-    },
-    body: JSON.stringify({
-      session: {
-        type: "realtime",
-        model: "gpt-realtime",
-        audio: {
-          output: { voice: "alloy" },
-          input: {
-            transcription: { model: "whisper-1" },
-            noise_reduction: { type: "near_field" },
+  const response = await fetch(
+    "https://api.openai.com/v1/realtime/client_secrets",
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${OPENAI_API_KEY}`,
+        "Content-Type": "application/json",
+        // Hashed id helps OpenAI's abuse monitoring without leaking the real one.
+        "OpenAI-Safety-Identifier": await sha256(user.id),
+      },
+      body: JSON.stringify({
+        session: {
+          type: "realtime",
+          model: "gpt-realtime",
+          audio: {
+            output: { voice: "alloy" },
+            input: {
+              transcription: { model: "whisper-1" },
+              noise_reduction: { type: "near_field" },
+            },
           },
         },
-      },
-      expires_after: { anchor: "created_at", seconds: TOKEN_TTL_SECONDS },
-    }),
-  });
+        expires_after: { anchor: "created_at", seconds: TOKEN_TTL_SECONDS },
+      }),
+    },
+  );
 
   if (!response.ok) {
     const detail = await response.text();
@@ -100,7 +103,10 @@ function json(body: unknown, status: number): Response {
 }
 
 async function sha256(value: string): Promise<string> {
-  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
+  const digest = await crypto.subtle.digest(
+    "SHA-256",
+    new TextEncoder().encode(value),
+  );
   return Array.from(new Uint8Array(digest))
     .map((b) => b.toString(16).padStart(2, "0"))
     .join("");

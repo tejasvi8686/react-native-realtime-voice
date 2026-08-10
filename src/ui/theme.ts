@@ -67,7 +67,11 @@ export function resolveTheme(
 /** Which colour represents the current conversational state. */
 export function statusColor(
   theme: RealtimeVoiceTheme,
-  status: { isUserSpeaking?: boolean; isAgentSpeaking?: boolean; isConnected?: boolean },
+  status: {
+    isUserSpeaking?: boolean;
+    isAgentSpeaking?: boolean;
+    isConnected?: boolean;
+  },
 ): string {
   if (status.isAgentSpeaking) return theme.speaking;
   if (status.isUserSpeaking) return theme.listening;

@@ -56,7 +56,10 @@ function withMicrophonePermission(config, props) {
 
 function withAudioPermissions(config) {
   return withAndroidManifest(config, (cfg) => {
-    AndroidConfig.Permissions.ensurePermissions(cfg.modResults, ANDROID_PERMISSIONS);
+    AndroidConfig.Permissions.ensurePermissions(
+      cfg.modResults,
+      ANDROID_PERMISSIONS,
+    );
     return cfg;
   });
 }

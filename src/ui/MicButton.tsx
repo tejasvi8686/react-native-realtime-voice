@@ -62,7 +62,10 @@ export function MicButton({
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={label}
-      accessibilityState={{ disabled: disabled || isConnecting, selected: !muted }}
+      accessibilityState={{
+        disabled: disabled || isConnecting,
+        selected: !muted,
+      }}
       disabled={disabled || isConnecting}
       onPress={onPress}
       style={({ pressed }) => [

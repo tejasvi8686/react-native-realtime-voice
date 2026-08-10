@@ -6,7 +6,13 @@
  */
 
 import React, { useEffect, useRef } from "react";
-import { Animated, Easing, StyleSheet, View, type ViewStyle } from "react-native";
+import {
+  Animated,
+  Easing,
+  StyleSheet,
+  View,
+  type ViewStyle,
+} from "react-native";
 
 import { resolveTheme, statusColor, type RealtimeVoiceTheme } from "./theme";
 
@@ -38,7 +44,11 @@ export function VoiceOrb({
 }: VoiceOrbProps) {
   const theme = resolveTheme(themeOverride);
   const active = isUserSpeaking || isAgentSpeaking || isConnecting;
-  const color = statusColor(theme, { isUserSpeaking, isAgentSpeaking, isConnected });
+  const color = statusColor(theme, {
+    isUserSpeaking,
+    isAgentSpeaking,
+    isConnected,
+  });
 
   const breathe = useRef(new Animated.Value(0)).current;
   // One shared value per ring, staggered by index.

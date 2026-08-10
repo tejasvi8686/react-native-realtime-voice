@@ -88,13 +88,19 @@ export function VoiceControlBar({
               <View
                 style={[
                   styles.closeBar,
-                  { backgroundColor: theme.onAccent, transform: [{ rotate: "45deg" }] },
+                  {
+                    backgroundColor: theme.onAccent,
+                    transform: [{ rotate: "45deg" }],
+                  },
                 ]}
               />
               <View
                 style={[
                   styles.closeBar,
-                  { backgroundColor: theme.onAccent, transform: [{ rotate: "-45deg" }] },
+                  {
+                    backgroundColor: theme.onAccent,
+                    transform: [{ rotate: "-45deg" }],
+                  },
                 ]}
               />
             </View>

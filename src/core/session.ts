@@ -6,11 +6,7 @@
  * this class, and it can equally be driven from a plain script or a test.
  */
 
-import {
-  CredentialProvider,
-  isApiKeyAuth,
-  type AuthConfig,
-} from "./auth";
+import { CredentialProvider, isApiKeyAuth, type AuthConfig } from "./auth";
 import {
   createInCallAudioRouter,
   noopAudioRouter,
@@ -94,7 +90,11 @@ export type RealtimeVoiceConfig = {
 
   /** Override the registered WebRTC module for this session only. */
   webrtc?: WebRTCModule;
-  iceServers?: { urls: string | string[]; username?: string; credential?: string }[];
+  iceServers?: {
+    urls: string | string[];
+    username?: string;
+    credential?: string;
+  }[];
   mediaConstraints?: Record<string, unknown>;
 
   /**
@@ -214,7 +214,9 @@ export class RealtimeSession extends Emitter<SessionEvents> {
   }
 
   getTranscripts(): TranscriptItem[] {
-    return [...this.transcripts.values()].sort((a, b) => a.createdAt - b.createdAt);
+    return [...this.transcripts.values()].sort(
+      (a, b) => a.createdAt - b.createdAt,
+    );
   }
 
   getUsage(): UsageSnapshot {
@@ -413,9 +415,13 @@ export class RealtimeSession extends Emitter<SessionEvents> {
       if (peerState === "failed" || peerState === "closed") {
         if (this.wantsConnection) {
           this.handleConnectionFailure(
-            new RealtimeVoiceError("connection-lost", `Peer connection ${peerState}.`, {
-              retryable: true,
-            }),
+            new RealtimeVoiceError(
+              "connection-lost",
+              `Peer connection ${peerState}.`,
+              {
+                retryable: true,
+              },
+            ),
           );
         }
       } else if (peerState === "disconnected") {
@@ -472,8 +478,12 @@ export class RealtimeSession extends Emitter<SessionEvents> {
   private maybeGreet(): void {
     const greeting = this.config.greeting;
     if (!greeting) return;
-    const instructions = typeof greeting === "string" ? greeting : DEFAULT_GREETING;
-    this.transport?.send({ type: "response.create", response: { instructions } });
+    const instructions =
+      typeof greeting === "string" ? greeting : DEFAULT_GREETING;
+    this.transport?.send({
+      type: "response.create",
+      response: { instructions },
+    });
   }
 
   private async resolveInstructions(): Promise<string | undefined> {
@@ -551,14 +561,25 @@ export class RealtimeSession extends Emitter<SessionEvents> {
 
       case "conversation.item.input_audio_transcription.delta": {
         const e = event as InputTranscriptionDeltaEvent;
-        if (e.delta) this.appendTranscript(e.item_id ?? "user-live", "user", e.delta, false);
+        if (e.delta)
+          this.appendTranscript(
+            e.item_id ?? "user-live",
+            "user",
+            e.delta,
+            false,
+          );
         break;
       }
 
       case "conversation.item.input_audio_transcription.completed": {
         const e = event as InputTranscriptionCompletedEvent;
         if (e.transcript) {
-          this.setTranscript(e.item_id ?? "user-live", "user", e.transcript, true);
+          this.setTranscript(
+            e.item_id ?? "user-live",
+            "user",
+            e.transcript,
+            true,
+          );
         }
         break;
       }
@@ -574,7 +595,12 @@ export class RealtimeSession extends Emitter<SessionEvents> {
       case "response.output_audio_transcript.delta": {
         const e = event as ResponseAudioTranscriptDeltaEvent;
         if (e.delta) {
-          this.appendTranscript(e.item_id ?? "agent-live", "assistant", e.delta, false);
+          this.appendTranscript(
+            e.item_id ?? "agent-live",
+            "assistant",
+            e.delta,
+            false,
+          );
         }
         break;
       }
@@ -582,7 +608,12 @@ export class RealtimeSession extends Emitter<SessionEvents> {
       case "response.output_text.delta": {
         const e = event as ResponseAudioTranscriptDeltaEvent;
         if (e.delta) {
-          this.appendTranscript(e.item_id ?? "agent-live", "assistant", e.delta, false);
+          this.appendTranscript(
+            e.item_id ?? "agent-live",
+            "assistant",
+            e.delta,
+            false,
+          );
         }
         break;
       }
@@ -590,7 +621,12 @@ export class RealtimeSession extends Emitter<SessionEvents> {
       case "response.output_audio_transcript.done": {
         const e = event as ResponseAudioTranscriptDoneEvent;
         if (e.transcript) {
-          this.setTranscript(e.item_id ?? "agent-live", "assistant", e.transcript, true);
+          this.setTranscript(
+            e.item_id ?? "agent-live",
+            "assistant",
+            e.transcript,
+            true,
+          );
         }
         break;
       }
@@ -623,7 +659,10 @@ export class RealtimeSession extends Emitter<SessionEvents> {
         const e = event as ErrorEvent;
         this.emit(
           "error",
-          new RealtimeVoiceError("server-error", e.error?.message ?? "Realtime API error."),
+          new RealtimeVoiceError(
+            "server-error",
+            e.error?.message ?? "Realtime API error.",
+          ),
         );
         break;
       }
@@ -633,7 +672,9 @@ export class RealtimeSession extends Emitter<SessionEvents> {
     }
   }
 
-  private async handleToolCall(event: FunctionCallArgumentsDoneEvent): Promise<void> {
+  private async handleToolCall(
+    event: FunctionCallArgumentsDoneEvent,
+  ): Promise<void> {
     const { call_id: callId, name } = event;
     if (!callId || !name) return;
 
@@ -661,7 +702,9 @@ export class RealtimeSession extends Emitter<SessionEvents> {
     // Duplicate call_id, or the session went away while the handler ran.
     if (!result) return;
     if (signal.aborted || !transport.isOpen) {
-      this.logger.debug(`Discarding result for ${name}; session no longer open.`);
+      this.logger.debug(
+        `Discarding result for ${name}; session no longer open.`,
+      );
       return;
     }
 
@@ -670,7 +713,9 @@ export class RealtimeSession extends Emitter<SessionEvents> {
       args: result.args,
       status: result.ok ? "succeeded" : "failed",
       result: result.ok ? result.output : undefined,
-      error: result.ok ? undefined : String((result.output as any)?.error ?? "failed"),
+      error: result.ok
+        ? undefined
+        : String((result.output as any)?.error ?? "failed"),
       finishedAt: Date.now(),
     });
 
@@ -699,9 +744,11 @@ export class RealtimeSession extends Emitter<SessionEvents> {
       inputTokens: this.usage.inputTokens + (usage.input_tokens ?? 0),
       outputTokens: this.usage.outputTokens + (usage.output_tokens ?? 0),
       inputAudioTokens:
-        this.usage.inputAudioTokens + (usage.input_token_details?.audio_tokens ?? 0),
+        this.usage.inputAudioTokens +
+        (usage.input_token_details?.audio_tokens ?? 0),
       outputAudioTokens:
-        this.usage.outputAudioTokens + (usage.output_token_details?.audio_tokens ?? 0),
+        this.usage.outputAudioTokens +
+        (usage.output_token_details?.audio_tokens ?? 0),
       totalTokens: this.usage.totalTokens + (usage.total_tokens ?? 0),
     };
     this.emit("usage", this.getUsage());
@@ -789,7 +836,10 @@ export class RealtimeSession extends Emitter<SessionEvents> {
   }
 }
 
-function resolveAudioRouter(config: RealtimeVoiceConfig, logger: Logger): AudioRouter {
+function resolveAudioRouter(
+  config: RealtimeVoiceConfig,
+  logger: Logger,
+): AudioRouter {
   if (config.audioRouter) return config.audioRouter;
   if (config.inCallManager) {
     return createInCallAudioRouter({

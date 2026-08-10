@@ -57,7 +57,10 @@ export type DefineToolConfig<TParams, TArgs> = {
   description: string;
   /** A zod object schema, or a plain JSON Schema object. */
   parameters: TParams;
-  handler: (args: InferArgs<TParams, TArgs>, ctx: ToolContext) => Promise<unknown> | unknown;
+  handler: (
+    args: InferArgs<TParams, TArgs>,
+    ctx: ToolContext,
+  ) => Promise<unknown> | unknown;
   /** Default 10000. */
   timeoutMs?: number;
 };
@@ -224,7 +227,9 @@ export class ToolRegistry {
           name,
           args: {},
           ok: false,
-          output: { error: "Arguments were not valid JSON. Try calling again." },
+          output: {
+            error: "Arguments were not valid JSON. Try calling again.",
+          },
           durationMs: Date.now() - startedAt,
         };
       }
@@ -280,7 +285,11 @@ export class ToolRegistry {
   }
 }
 
-function withTimeout<T>(promise: Promise<T>, ms: number, toolName: string): Promise<T> {
+function withTimeout<T>(
+  promise: Promise<T>,
+  ms: number,
+  toolName: string,
+): Promise<T> {
   if (!Number.isFinite(ms) || ms <= 0) return promise;
   return new Promise<T>((resolve, reject) => {
     const timer = setTimeout(() => {
@@ -305,11 +314,15 @@ function withTimeout<T>(promise: Promise<T>, ms: number, toolName: string): Prom
 }
 
 function describeValidationError(error: unknown): string {
-  const issues = (error as { issues?: { path?: (string | number)[]; message?: string }[] })
-    ?.issues;
+  const issues = (
+    error as { issues?: { path?: (string | number)[]; message?: string }[] }
+  )?.issues;
   if (!Array.isArray(issues)) return "Invalid arguments.";
   return issues
     .slice(0, 5)
-    .map((i) => `${(i.path ?? []).join(".") || "(root)"}: ${i.message ?? "invalid"}`)
+    .map(
+      (i) =>
+        `${(i.path ?? []).join(".") || "(root)"}: ${i.message ?? "invalid"}`,
+    )
     .join("; ");
 }

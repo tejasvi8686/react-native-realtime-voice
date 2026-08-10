@@ -42,7 +42,12 @@ export function TranscriptView({
   if (items.length === 0 && emptyText) {
     return (
       <View style={[styles.empty, style]}>
-        <Text style={[styles.emptyText, { color: theme.textMuted, fontFamily: theme.fontFamily }]}>
+        <Text
+          style={[
+            styles.emptyText,
+            { color: theme.textMuted, fontFamily: theme.fontFamily },
+          ]}
+        >
           {emptyText}
         </Text>
       </View>
@@ -70,7 +75,9 @@ export function TranscriptView({
       ref={scrollRef}
       style={style}
       contentContainerStyle={[styles.list, contentContainerStyle]}
-      onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: true })}
+      onContentSizeChange={() =>
+        scrollRef.current?.scrollToEnd({ animated: true })
+      }
       showsVerticalScrollIndicator={false}
     >
       {items.map((item) => {

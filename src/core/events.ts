@@ -121,7 +121,12 @@ export type OutputAudioClearedEvent = ServerEventBase & {
 
 export type RateLimitsUpdatedEvent = ServerEventBase & {
   type: "rate_limits.updated";
-  rate_limits?: { name?: string; limit?: number; remaining?: number; reset_seconds?: number }[];
+  rate_limits?: {
+    name?: string;
+    limit?: number;
+    remaining?: number;
+    reset_seconds?: number;
+  }[];
 };
 
 export type ErrorEvent = ServerEventBase & {
@@ -163,4 +168,9 @@ export type ClientEvent =
       item: Record<string, unknown>;
       previous_item_id?: string;
     }
-  | { type: "conversation.item.truncate"; item_id: string; content_index: number; audio_end_ms: number };
+  | {
+      type: "conversation.item.truncate";
+      item_id: string;
+      content_index: number;
+      audio_end_ms: number;
+    };

@@ -7,7 +7,8 @@ Headless core, optional UI kit, tools that carry their own handlers, and ephemer
 ```tsx
 const voice = useRealtimeVoice({
   auth: { getToken: () => fetch("/api/realtime-token").then((r) => r.json()) },
-  instructions: () => `You are a friendly coach. The user's name is ${user.name}.`,
+  instructions: () =>
+    `You are a friendly coach. The user's name is ${user.name}.`,
   tools: [logWaterTool],
 });
 
@@ -173,14 +174,14 @@ defineTool<{ amount_ml: number }>({
 
 What the registry handles for you:
 
-| Behaviour | Detail |
-|---|---|
+| Behaviour           | Detail                                                           |
+| ------------------- | ---------------------------------------------------------------- |
 | Argument validation | zod schemas validate and apply defaults before your handler runs |
-| Bad arguments | Returned to the model as a correctable message, not thrown |
-| Duplicate `call_id` | Ignored (bounded LRU — cannot leak across a long session) |
-| Timeouts | 10s default, per-tool via `timeoutMs`; reported to the model |
-| Cancellation | `ctx.signal` aborts when the session ends mid-handler |
-| Late results | Discarded if the session closed while the handler ran |
+| Bad arguments       | Returned to the model as a correctable message, not thrown       |
+| Duplicate `call_id` | Ignored (bounded LRU — cannot leak across a long session)        |
+| Timeouts            | 10s default, per-tool via `timeoutMs`; reported to the model     |
+| Cancellation        | `ctx.signal` aborts when the session ends mid-handler            |
+| Late results        | Discarded if the session closed while the handler ran            |
 
 Handlers get a context object:
 
@@ -201,7 +202,11 @@ const voice = useRealtimeVoice({
   instructions: () => buildPrompt(reduxState), // re-evaluated on every connect
   tools: [logWaterTool, getWorkoutTool],
   voice: "alloy",
-  turnDetection: { type: "server_vad", threshold: 0.5, silence_duration_ms: 500 },
+  turnDetection: {
+    type: "server_vad",
+    threshold: 0.5,
+    silence_duration_ms: 500,
+  },
   greeting: true,
   inCallManager: InCallManager,
   logLevel: __DEV__ ? "debug" : "silent",
@@ -258,9 +263,19 @@ const voice = useRealtimeVoice({ instructions, tools });
 Optional, from a separate subpath — import nothing and none of it ships:
 
 ```tsx
-import { VoiceAgentView, VoiceOrb, MicButton, TranscriptView } from "react-native-realtime-voice/ui";
+import {
+  VoiceAgentView,
+  VoiceOrb,
+  MicButton,
+  TranscriptView,
+} from "react-native-realtime-voice/ui";
 
-<VoiceAgentView voice={voice} title="Coach" transcriptVariant="caption" theme={{ accent: "#55B3FE" }} />
+<VoiceAgentView
+  voice={voice}
+  title="Coach"
+  transcriptVariant="caption"
+  theme={{ accent: "#55B3FE" }}
+/>;
 ```
 
 Built on React Native's own `Animated` and plain `View` glyphs — **no** icon library, animation library, or gradient library. Every piece is exported individually if you want your own layout; the theme is a flat token object (`accent`, `listening`, `speaking`, `danger`, `text`, …) with `darkTheme` and `lightTheme` presets.
