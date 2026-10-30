@@ -11,7 +11,13 @@ const { execFileSync } = require("node:child_process");
 const path = require("node:path");
 const fs = require("node:fs");
 
-const SUITES = ["schema.test.cjs", "session.test.cjs", "auth.test.cjs"];
+const SUITES = [
+  "schema.test.cjs",
+  "session.test.cjs",
+  "auth.test.cjs",
+  "regressions.test.cjs",
+  "hook.test.cjs",
+];
 
 const lib = path.join(__dirname, "..", "lib", "commonjs", "index.js");
 if (!fs.existsSync(lib)) {

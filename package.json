@@ -127,6 +127,7 @@
     "react": "19.1.0",
     "react-native": "0.81.4",
     "react-native-builder-bob": "^0.40.0",
+    "react-test-renderer": "19.1.0",
     "typescript": "~5.9.2",
     "typescript-eslint": "^8.67.0",
     "zod": "^3.25.76"
