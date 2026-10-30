@@ -4,6 +4,8 @@ All notable changes to this package. Versions follow [semver](https://semver.org
 
 ## [Unreleased]
 
+## [0.2.0] — 2026-10-30
+
 ### Changed
 
 - **Transcripts now outlive the call.** `disconnect()` no longer clears
@@ -153,7 +155,8 @@ Initial release.
 - Expo config plugin for the microphone and Android audio permissions.
 - Zero runtime dependencies.
 
-[unreleased]: https://github.com/tejasvi8686/react-native-realtime-voice/compare/v0.1.5...HEAD
+[unreleased]: https://github.com/tejasvi8686/react-native-realtime-voice/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/tejasvi8686/react-native-realtime-voice/compare/v0.1.5...v0.2.0
 [0.1.5]: https://github.com/tejasvi8686/react-native-realtime-voice/compare/v0.1.4...v0.1.5
 [0.1.4]: https://github.com/tejasvi8686/react-native-realtime-voice/compare/v0.1.3...v0.1.4
 [0.1.3]: https://github.com/tejasvi8686/react-native-realtime-voice/compare/v0.1.2...v0.1.3
