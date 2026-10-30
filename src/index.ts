@@ -19,6 +19,7 @@ export {
 // ---- Session ----
 export {
   RealtimeSession,
+  type ConnectOptions,
   type RealtimeVoiceConfig,
   type ReconnectPolicy,
   type SessionEvents,

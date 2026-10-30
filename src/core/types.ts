@@ -174,6 +174,11 @@ export type TranscriptItem = {
   isFinal: boolean;
   /** Epoch ms when the item was first observed. */
   createdAt: number;
+  /**
+   * Position in the conversation. Sort by this, not `createdAt`: the user's
+   * transcription often finishes after the agent has started replying.
+   */
+  order: number;
 };
 
 export type ToolInvocation = {

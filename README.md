@@ -241,6 +241,15 @@ Returns:
 
 Changing `instructions`, `tools`, `toolChoice` or `turnDetection` on a **live** session pushes a `session.update` rather than reconnecting, and only when the resulting config actually differs. `model` and `voice` are fixed for a connection's lifetime (an API constraint) and apply on the next connect.
 
+### Conversation history
+
+- **Order.** `transcripts` is in conversation order, by each item's `order` field. The user's transcription often finishes after the agent has started replying, so sorting by arrival time would put the question under its answer.
+- **After hang-up.** `disconnect()` keeps the transcripts and tool calls, so you can show or save the call. The next `connect()` starts a fresh conversation and clears them. `clearTranscripts()` clears them at any time.
+- **Reconnects.** Each new connection is a fresh server session that remembers nothing. When a dropped call reconnects, the last 20 finished messages are replayed into it so the agent keeps the thread. Set `replayHistory` to change the number, or `false` to turn it off. Only text is replayed, not tool calls or their results.
+- **Continuing a call.** `connect({ resume: true })` continues the previous call: its history is kept and replayed, and the greeting is skipped.
+
+User speech is transcribed with `gpt-4o-mini-transcribe` by default. It streams partial text and costs half as much as `whisper-1`. For captions that update while the user is still talking, use `transcription: { model: "gpt-live-transcribe" }`, which costs more. Pass `transcription: false` if you show no text at all.
+
 ### Provider
 
 Hoist the config that never varies:
@@ -289,7 +298,7 @@ Built on React Native's own `Animated` and plain `View` glyphs — **no** icon l
 
 ## Reliability
 
-- **Reconnect** — retryable failures (network drop, expired token, 5xx) reconnect with exponential backoff. Configure via `reconnect: { enabled, maxAttempts, initialDelayMs, maxDelayMs }`; auth failures force a fresh token on retry. A reconnect continues the same call, so the greeting is not repeated.
+- **Reconnect** — retryable failures (network drop, expired token, 5xx) reconnect with exponential backoff. Configure via `reconnect: { enabled, maxAttempts, initialDelayMs, maxDelayMs }`; auth failures force a fresh token on retry. A reconnect continues the same call: recent history is replayed into the new server session (see [Conversation history](#conversation-history)), and the greeting is not repeated.
 - **Barge-in** — enabled by default through `turn_detection.interrupt_response`. `voice.interrupt()` cancels the response and clears queued audio.
 - **Audio routing** — pass `inCallManager` to route to the loudspeaker; omit it and routing is untouched. Supply your own `audioRouter` for full control.
 - **Usage** — `voice.usage` accumulates input/output and audio token counts per session.
@@ -320,7 +329,7 @@ session.on("toolResult", (call) => console.log(call.name, call.result));
 await session.connect();
 ```
 
-Events: `stateChange` · `transcript` · `userSpeechStart|Stop` · `agentSpeechStart|Stop` · `toolCall` · `toolResult` · `usage` · `remoteStream` · `diagnostics` · `error` · `raw`.
+Events: `stateChange` · `transcript` · `conversationReset` · `userSpeechStart|Stop` · `agentSpeechStart|Stop` · `toolCall` · `toolResult` · `usage` · `remoteStream` · `diagnostics` · `error` · `raw`.
 
 `raw` emits every server event, including ones the package does not interpret — you are never blocked by our coverage.
 
