@@ -154,6 +154,14 @@ export class RealtimeSession extends Emitter<SessionEvents> {
 
   /** Set while the consumer intends to be connected; cleared by `disconnect()`. */
   private wantsConnection = false;
+  /**
+   * Bumped by every `connect()` and `disconnect()`. A connection attempt keeps
+   * the value it started with and abandons itself once that no longer matches,
+   * so a fast disconnect-then-connect can never leave two peer connections.
+   */
+  private connectionGeneration = 0;
+  /** A reconnect continues the same call, so it must not greet a second time. */
+  private hasGreeted = false;
   private reconnectAttempts = 0;
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private connectStartedAt: number | null = null;
@@ -170,6 +178,14 @@ export class RealtimeSession extends Emitter<SessionEvents> {
    * out again even though the local config is unchanged.
    */
   private lastSessionUpdateJson: string | null = null;
+  /**
+   * Instructions resolved for the current connection. The function form is
+   * evaluated once per connection, not on every config push — a re-render that
+   * only changes `tools` identity must not re-run a prompt builder.
+   */
+  private instructionsPromise: Promise<string | undefined> | null = null;
+  /** Tool runs waiting on their response's `response.done`, by response id. */
+  private pendingToolRuns = new Map<string, Promise<boolean>[]>();
   private usage: UsageSnapshot = {
     inputTokens: 0,
     outputTokens: 0,
@@ -242,33 +258,57 @@ export class RealtimeSession extends Emitter<SessionEvents> {
    * the lifetime of a connection and apply on the next connect.
    */
   updateConfig(partial: Partial<RealtimeVoiceConfig>): void {
+    const previousTools = this.config.tools ?? [];
     this.config = { ...this.config, ...partial };
-    if (partial.tools) this.tools.replace(partial.tools);
+    if (partial.tools && !sameItems(partial.tools, previousTools)) {
+      this.tools.replace(partial.tools);
+    }
+    // An explicitly supplied prompt is always re-resolved; everything else
+    // reuses the value resolved for this connection.
+    if ("instructions" in partial) this.instructionsPromise = null;
     if (this.transport?.isOpen) void this.pushSessionUpdate();
   }
 
+  /**
+   * Re-evaluate `instructions` and push the result if it changed. The function
+   * form otherwise runs once per connection.
+   */
+  async refreshInstructions(): Promise<void> {
+    this.instructionsPromise = null;
+    await this.pushSessionUpdate();
+  }
+
   async connect(): Promise<void> {
-    if (this.state === "connected" || this.state === "connecting") {
+    if (
+      this.state === "connected" ||
+      this.state === "connecting" ||
+      this.state === "authenticating" ||
+      this.state === "reconnecting"
+    ) {
       this.logger.debug("connect() ignored; already " + this.state);
       return;
     }
     this.wantsConnection = true;
     this.reconnectAttempts = 0;
-    await this.openConnection();
+    this.hasGreeted = false;
+    await this.openConnection(++this.connectionGeneration);
   }
 
   async disconnect(): Promise<void> {
     this.wantsConnection = false;
+    this.connectionGeneration++;
     this.clearReconnectTimer();
     this.toolAbort?.abort();
     this.toolAbort = null;
+    this.pendingToolRuns.clear();
     this.audioRouter.deactivate();
 
-    if (this.transport) {
-      await this.transport.close();
-      this.transport.removeAllListeners();
-      this.transport = null;
-    }
+    // Detach before closing so the transport's own "closed" events are not
+    // mistaken for a dropped call, and so a connect() issued right after this
+    // starts clean instead of finding the old transport still attached.
+    const transport = this.transport;
+    this.transport = null;
+    transport?.removeAllListeners();
 
     this.tools.reset();
     this.transcripts.clear();
@@ -277,7 +317,10 @@ export class RealtimeSession extends Emitter<SessionEvents> {
     this.micEnabled = true;
     this.connectStartedAt = null;
     this.lastSessionUpdateJson = null;
+    this.instructionsPromise = null;
     this.setState("idle");
+
+    await transport?.close();
   }
 
   /** Stop the agent mid-sentence and drop its queued audio. */
@@ -352,20 +395,23 @@ export class RealtimeSession extends Emitter<SessionEvents> {
     this.emit(speaking ? "userSpeechStart" : "userSpeechStop", undefined);
   }
 
-  private async openConnection(): Promise<void> {
+  private async openConnection(generation: number): Promise<void> {
     this.connectStartedAt = Date.now();
     // A new server-side session carries none of our config, so the dedupe
     // cache must not survive into it.
     this.lastSessionUpdateJson = null;
+    this.instructionsPromise = null;
+    this.pendingToolRuns.clear();
     this.setState("authenticating");
 
+    let transport: WebRTCTransport | null = null;
     try {
       const credential = await this.credentials.resolve();
-      if (!this.wantsConnection) return;
+      if (generation !== this.connectionGeneration) return;
 
       this.setState("connecting");
 
-      const transport = new WebRTCTransport({
+      transport = new WebRTCTransport({
         logger: this.logger,
         webrtc: this.config.webrtc,
         iceServers: this.config.iceServers,
@@ -381,12 +427,18 @@ export class RealtimeSession extends Emitter<SessionEvents> {
         session: await this.buildSessionPayload(),
       });
 
-      if (!this.wantsConnection) {
-        await this.disconnect();
+      if (this.isSuperseded(generation, transport)) {
+        await discardTransport(transport);
         return;
       }
       transport.setMicEnabled(this.micEnabled);
     } catch (e) {
+      // Superseded by disconnect(), a newer connect() or a reconnect. Its
+      // failure — usually "aborted" — belongs to a call nobody awaits any more.
+      if (this.isSuperseded(generation, transport)) {
+        if (transport) await discardTransport(transport);
+        return;
+      }
       const error = toRealtimeError(e);
       // An expired ephemeral token is the common retryable failure; force a
       // fresh mint before the next attempt.
@@ -394,6 +446,16 @@ export class RealtimeSession extends Emitter<SessionEvents> {
       this.emit("error", error);
       this.handleConnectionFailure(error);
     }
+  }
+
+  private isSuperseded(
+    generation: number,
+    transport: WebRTCTransport | null,
+  ): boolean {
+    return (
+      generation !== this.connectionGeneration ||
+      (transport !== null && transport !== this.transport)
+    );
   }
 
   private wireTransport(transport: WebRTCTransport): void {
@@ -446,7 +508,8 @@ export class RealtimeSession extends Emitter<SessionEvents> {
   private async pushSessionUpdate(): Promise<void> {
     if (!this.transport?.isOpen) return;
 
-    const instructions = await this.resolveInstructions();
+    const instructions = await this.currentInstructions();
+    if (!this.transport?.isOpen) return;
     const session: Record<string, unknown> = { type: "realtime" };
 
     if (instructions) session.instructions = instructions;
@@ -477,13 +540,29 @@ export class RealtimeSession extends Emitter<SessionEvents> {
 
   private maybeGreet(): void {
     const greeting = this.config.greeting;
-    if (!greeting) return;
+    if (!greeting || this.hasGreeted) return;
     const instructions =
       typeof greeting === "string" ? greeting : DEFAULT_GREETING;
-    this.transport?.send({
-      type: "response.create",
-      response: { instructions },
-    });
+    this.hasGreeted =
+      this.transport?.send({
+        type: "response.create",
+        response: { instructions },
+      }) ?? false;
+  }
+
+  /** Instructions for this connection, resolved at most once until invalidated. */
+  private currentInstructions(): Promise<string | undefined> {
+    if (!this.instructionsPromise) {
+      const pending = this.resolveInstructions();
+      this.instructionsPromise = pending;
+      // Never cache a failure; the next push retries.
+      pending.catch(() => {
+        if (this.instructionsPromise === pending) {
+          this.instructionsPromise = null;
+        }
+      });
+    }
+    return this.instructionsPromise;
   }
 
   private async resolveInstructions(): Promise<string | undefined> {
@@ -531,7 +610,7 @@ export class RealtimeSession extends Emitter<SessionEvents> {
       type: "realtime",
       model: this.config.model ?? DEFAULT_MODEL,
     };
-    const instructions = await this.resolveInstructions();
+    const instructions = await this.currentInstructions();
     if (instructions) payload.instructions = instructions;
     const audio = this.buildAudioConfig({ includeOutput: true });
     if (audio) payload.audio = audio as RealtimeSessionPayload["audio"];
@@ -648,12 +727,30 @@ export class RealtimeSession extends Emitter<SessionEvents> {
         if (e.response?.status === "failed" && failure) {
           this.emit("error", new RealtimeVoiceError("server-error", failure));
         }
+        if (e.response?.id) {
+          void this.finishToolRuns(e.response.id, e.response.status);
+        }
         break;
       }
 
-      case "response.function_call_arguments.done":
-        void this.handleToolCall(event as FunctionCallArgumentsDoneEvent);
+      case "response.function_call_arguments.done": {
+        const e = event as FunctionCallArgumentsDoneEvent;
+        // Start the handler now rather than at response.done: the arguments
+        // are final, and every millisecond here is silence on the call.
+        const run = this.handleToolCall(e);
+        if (e.response_id) {
+          const runs = this.pendingToolRuns.get(e.response_id) ?? [];
+          runs.push(run);
+          this.pendingToolRuns.set(e.response_id, runs);
+        } else {
+          // No response id to wait on: follow up as soon as this one is in.
+          const transport = this.transport;
+          void run.then((sent) => {
+            if (sent && transport) this.requestFollowUp(transport);
+          });
+        }
         break;
+      }
 
       case "error": {
         const e = event as ErrorEvent;
@@ -672,15 +769,19 @@ export class RealtimeSession extends Emitter<SessionEvents> {
     }
   }
 
+  /**
+   * Run one tool call and send its output. Resolves true once the output is in
+   * the conversation; the follow-up `response.create` is the caller's job.
+   */
   private async handleToolCall(
     event: FunctionCallArgumentsDoneEvent,
-  ): Promise<void> {
+  ): Promise<boolean> {
     const { call_id: callId, name } = event;
-    if (!callId || !name) return;
+    if (!callId || !name) return false;
 
     const transport = this.transport;
     const signal = this.toolAbort?.signal;
-    if (!transport || !signal) return;
+    if (!transport || !signal) return false;
 
     const invocation: ToolInvocation = {
       callId,
@@ -700,12 +801,12 @@ export class RealtimeSession extends Emitter<SessionEvents> {
     });
 
     // Duplicate call_id, or the session went away while the handler ran.
-    if (!result) return;
+    if (!result) return false;
     if (signal.aborted || !transport.isOpen) {
       this.logger.debug(
         `Discarding result for ${name}; session no longer open.`,
       );
-      return;
+      return false;
     }
 
     this.emit("toolResult", {
@@ -719,7 +820,7 @@ export class RealtimeSession extends Emitter<SessionEvents> {
       finishedAt: Date.now(),
     });
 
-    transport.send({
+    return transport.send({
       type: "conversation.item.create",
       item: {
         type: "function_call_output",
@@ -730,10 +831,34 @@ export class RealtimeSession extends Emitter<SessionEvents> {
             : JSON.stringify(result.output ?? {}),
       },
     });
-    // The API queues the item before it can generate; issuing response.create in
-    // the same tick is what the 200ms sleep in the original code was papering
-    // over. A microtask hop is enough because the data channel preserves order.
-    await Promise.resolve();
+  }
+
+  /**
+   * Ask for the model's follow-up once every tool call in a response has its
+   * output in the conversation and the response itself has finished. The API
+   * rejects a `response.create` while a response is active, so a response that
+   * called two tools must produce one follow-up, not one per tool.
+   */
+  private async finishToolRuns(
+    responseId: string,
+    status: string | undefined,
+  ): Promise<void> {
+    const runs = this.pendingToolRuns.get(responseId);
+    if (!runs) return;
+    this.pendingToolRuns.delete(responseId);
+
+    const transport = this.transport;
+    const sent = await Promise.all(runs);
+    // A cancelled response means the user barged in, and turn detection is
+    // already producing the reply to that; a second request would collide.
+    if (status === "cancelled" || !sent.some(Boolean) || !transport) return;
+    this.requestFollowUp(transport);
+  }
+
+  private requestFollowUp(transport: WebRTCTransport): void {
+    // A reconnect in the meantime means a different server session, which
+    // never saw these outputs.
+    if (transport !== this.transport || !transport.isOpen) return;
     transport.send({ type: "response.create" });
   }
 
@@ -816,14 +941,19 @@ export class RealtimeSession extends Emitter<SessionEvents> {
     );
     this.setState("reconnecting");
 
+    const generation = this.connectionGeneration;
     this.clearReconnectTimer();
     this.reconnectTimer = setTimeout(() => {
       this.reconnectTimer = null;
-      if (!this.wantsConnection) return;
-      void this.transport?.close().then(() => {
-        this.transport?.removeAllListeners();
-        this.transport = null;
-        void this.openConnection();
+      if (!this.wantsConnection || generation !== this.connectionGeneration) {
+        return;
+      }
+      const stale = this.transport;
+      this.transport = null;
+      void (stale ? discardTransport(stale) : Promise.resolve()).then(() => {
+        if (generation === this.connectionGeneration) {
+          void this.openConnection(generation);
+        }
       });
     }, delay);
   }
@@ -834,6 +964,17 @@ export class RealtimeSession extends Emitter<SessionEvents> {
       this.reconnectTimer = null;
     }
   }
+}
+
+/** Detach and close a transport that no live call is using. */
+async function discardTransport(transport: WebRTCTransport): Promise<void> {
+  transport.removeAllListeners();
+  await transport.close();
+}
+
+/** Same tools in the same order — a re-render, not a real change. */
+function sameItems<T>(a: readonly T[], b: readonly T[]): boolean {
+  return a.length === b.length && a.every((item, i) => item === b[i]);
 }
 
 function resolveAudioRouter(

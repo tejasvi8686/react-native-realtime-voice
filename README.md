@@ -180,8 +180,9 @@ What the registry handles for you:
 | Bad arguments       | Returned to the model as a correctable message, not thrown       |
 | Duplicate `call_id` | Ignored (bounded LRU — cannot leak across a long session)        |
 | Timeouts            | 10s default, per-tool via `timeoutMs`; reported to the model     |
-| Cancellation        | `ctx.signal` aborts when the session ends mid-handler            |
+| Cancellation        | `ctx.signal` aborts when the session ends or the call times out  |
 | Late results        | Discarded if the session closed while the handler ran            |
+| Parallel calls      | Several calls in one turn get one follow-up reply, not one each  |
 
 Handlers get a context object:
 
@@ -199,7 +200,7 @@ handler: async (args, { signal, callId, send }) => {
 ```tsx
 const voice = useRealtimeVoice({
   auth,
-  instructions: () => buildPrompt(reduxState), // re-evaluated on every connect
+  instructions: () => buildPrompt(reduxState), // evaluated once per connection
   tools: [logWaterTool, getWorkoutTool],
   voice: "alloy",
   turnDetection: {
@@ -227,14 +228,18 @@ Returns:
 
   // actions
   connect, disconnect, interrupt, toggleMic, setMicEnabled,
-  setSpeakerphone, sendText, clearTranscripts, clearError,
+  setSpeakerphone, sendText, refreshInstructions,
+  clearTranscripts, clearError,
   session,   // the underlying RealtimeSession
 }
 ```
 
-`instructions` accepts a function so the prompt is rebuilt at connect time — pass a string and it is captured once, which is how prompts silently go stale between sessions.
+`instructions` takes a string or a function:
 
-Changing `instructions`, `tools`, `toolChoice` or `turnDetection` on a **live** session pushes a `session.update` rather than reconnecting. `model` and `voice` are fixed for a connection's lifetime (an API constraint) and apply on the next connect.
+- **A string** is pushed to the live call whenever its value changes.
+- **A function** runs once when each connection opens, always using the closure from the latest render, so it never goes stale between calls. Writing it inline is fine: a new function identity on each render does not re-run it. To rebuild the prompt mid-call, for example after the app state it reads has changed, call `voice.refreshInstructions()`.
+
+Changing `instructions`, `tools`, `toolChoice` or `turnDetection` on a **live** session pushes a `session.update` rather than reconnecting, and only when the resulting config actually differs. `model` and `voice` are fixed for a connection's lifetime (an API constraint) and apply on the next connect.
 
 ### Provider
 
@@ -284,7 +289,7 @@ Built on React Native's own `Animated` and plain `View` glyphs — **no** icon l
 
 ## Reliability
 
-- **Reconnect** — retryable failures (network drop, expired token, 5xx) reconnect with exponential backoff. Configure via `reconnect: { enabled, maxAttempts, initialDelayMs, maxDelayMs }`; auth failures force a fresh token on retry.
+- **Reconnect** — retryable failures (network drop, expired token, 5xx) reconnect with exponential backoff. Configure via `reconnect: { enabled, maxAttempts, initialDelayMs, maxDelayMs }`; auth failures force a fresh token on retry. A reconnect continues the same call, so the greeting is not repeated.
 - **Barge-in** — enabled by default through `turn_detection.interrupt_response`. `voice.interrupt()` cancels the response and clears queued audio.
 - **Audio routing** — pass `inCallManager` to route to the loudspeaker; omit it and routing is untouched. Supply your own `audioRouter` for full control.
 - **Usage** — `voice.usage` accumulates input/output and audio token counts per session.

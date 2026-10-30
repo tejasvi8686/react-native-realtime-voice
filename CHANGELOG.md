@@ -4,6 +4,39 @@ All notable changes to this package. Versions follow [semver](https://semver.org
 
 ## [Unreleased]
 
+### Fixed
+
+- `useRealtimeVoice` stopped receiving session events after a StrictMode
+  mount or any Fast Refresh. The unmount cleanup called `session.dispose()`
+  without awaiting it, and when React re-ran the effects the late
+  `removeAllListeners()` wiped the subscriptions that had just been re-added.
+  Teardown is now deferred one tick and cancelled by the re-run, so a hot
+  reload no longer drops a live call either.
+- When the model called several tools in one response, the session sent one
+  `response.create` per tool, each before the response had finished. The API
+  rejects a second request while a response is active, or the agent answered
+  twice. Outputs are still sent as each handler finishes. A single follow-up is
+  requested after `response.done`, and none if that response was cancelled by
+  barge-in.
+- An `instructions` function ran on every re-render during a live call,
+  because inline `tools` re-triggered a config push. It now runs once per
+  connection, using the latest render's closure. A string value is still
+  pushed whenever it changes.
+- Calling `connect()` while a connection was authenticating, or calling
+  `disconnect()` then `connect()` in quick succession, could open two peer
+  connections. Superseded attempts now abandon themselves.
+- The agent greeted the user again after every automatic reconnect.
+- A tool call that timed out kept running with no way to notice. Its
+  `ctx.signal` now aborts on timeout. The docs no longer claim `interrupt()`
+  cancels tools; it deliberately does not.
+
+### Added
+
+- `refreshInstructions()` on the hook and on `RealtimeSession`, which re-runs
+  the `instructions` function mid-call and pushes the result if it changed.
+
+## [0.1.5] — 2026-08-10
+
 ### Added
 
 - Prettier, ESLint and `.editorconfig`, wired into CI. `eslint-plugin-react-hooks`
@@ -92,7 +125,8 @@ Initial release.
 - Expo config plugin for the microphone and Android audio permissions.
 - Zero runtime dependencies.
 
-[unreleased]: https://github.com/tejasvi8686/react-native-realtime-voice/compare/v0.1.4...HEAD
+[unreleased]: https://github.com/tejasvi8686/react-native-realtime-voice/compare/v0.1.5...HEAD
+[0.1.5]: https://github.com/tejasvi8686/react-native-realtime-voice/compare/v0.1.4...v0.1.5
 [0.1.4]: https://github.com/tejasvi8686/react-native-realtime-voice/compare/v0.1.3...v0.1.4
 [0.1.3]: https://github.com/tejasvi8686/react-native-realtime-voice/compare/v0.1.2...v0.1.3
 [0.1.2]: https://github.com/tejasvi8686/react-native-realtime-voice/compare/v0.1.1...v0.1.2

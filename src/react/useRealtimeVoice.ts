@@ -71,6 +71,11 @@ export type UseRealtimeVoiceResult = {
   setMicEnabled: (enabled: boolean) => void;
   setSpeakerphone: (enabled: boolean) => void;
   sendText: (text: string) => void;
+  /**
+   * Re-run an `instructions` function mid-call and push the result if it
+   * changed. Otherwise a function runs once per connection.
+   */
+  refreshInstructions: () => Promise<void>;
   clearTranscripts: () => void;
   clearError: () => void;
   /** Escape hatch for advanced use. */
@@ -86,7 +91,19 @@ export function useRealtimeVoice(
 
   // Created once. Config changes are pushed in, never rebuilt around.
   const [session] = useState(
-    () => new RealtimeSession(mergeConfig(defaults, options)),
+    () =>
+      new RealtimeSession({
+        ...mergeConfig(defaults, options),
+        // Stable for the session's lifetime but always reads the latest prop,
+        // so an inline function — new on every render — neither re-runs on
+        // each render nor goes stale between calls.
+        instructions: () => {
+          const { instructions } = optionsRef.current;
+          return typeof instructions === "function"
+            ? instructions()
+            : (instructions ?? "");
+        },
+      }),
   );
 
   const [state, setState] = useState<ConnectionState>("idle");
@@ -137,10 +154,20 @@ export function useRealtimeVoice(
     return () => offs.forEach((off) => off());
   }, [session]);
 
-  // Tear down on unmount. Guarded so a fast remount cannot leak a peer connection.
+  // Tear down on unmount. Deferred one tick because StrictMode and Fast Refresh
+  // run this cleanup and then the setup again on the same component: the
+  // re-run cancels the pending teardown instead of dropping a live call.
+  const teardownTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
+    if (teardownTimer.current) {
+      clearTimeout(teardownTimer.current);
+      teardownTimer.current = null;
+    }
     return () => {
-      void session.dispose();
+      teardownTimer.current = setTimeout(() => {
+        teardownTimer.current = null;
+        void session.dispose();
+      }, 0);
     };
   }, [session]);
 
@@ -156,7 +183,6 @@ export function useRealtimeVoice(
   } = options;
   useEffect(() => {
     session.updateConfig({
-      instructions,
       tools,
       toolChoice,
       turnDetection,
@@ -166,7 +192,6 @@ export function useRealtimeVoice(
     });
   }, [
     session,
-    instructions,
     tools,
     toolChoice,
     turnDetection,
@@ -174,6 +199,15 @@ export function useRealtimeVoice(
     maxOutputTokens,
     greeting,
   ]);
+
+  // A string prompt is pushed as soon as it changes. A function's identity
+  // changes on every render when written inline, so it says nothing; it is
+  // read at connect time and on refreshInstructions() instead.
+  const instructionsText =
+    typeof instructions === "string" ? instructions : null;
+  useEffect(() => {
+    if (instructionsText !== null) void session.refreshInstructions();
+  }, [session, instructionsText]);
 
   const connect = useCallback(async () => {
     setError(null);
@@ -220,6 +254,11 @@ export function useRealtimeVoice(
     [session],
   );
 
+  const refreshInstructions = useCallback(
+    () => session.refreshInstructions(),
+    [session],
+  );
+
   const clearTranscripts = useCallback(() => setTranscripts([]), []);
   const clearError = useCallback(() => setError(null), []);
 
@@ -255,6 +294,7 @@ export function useRealtimeVoice(
     setMicEnabled,
     setSpeakerphone,
     sendText,
+    refreshInstructions,
     clearTranscripts,
     clearError,
     session,

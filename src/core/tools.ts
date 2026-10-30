@@ -14,7 +14,11 @@ import type { JSONSchema, RealtimeFunctionTool } from "./types";
 
 /** Passed to every handler so tools can react to cancellation. */
 export type ToolContext = {
-  /** Aborted when the session disconnects or the user interrupts. */
+  /**
+   * Aborted when the session disconnects or this call times out. Not aborted
+   * by `interrupt()`: cutting the agent off mid-sentence should not cancel an
+   * action the user already asked for.
+   */
   signal: AbortSignal;
   /** OpenAI's id for this invocation. */
   callId: string;
@@ -256,11 +260,21 @@ export class ToolRegistry {
 
     this.logger.debug(`Executing tool ${name}`, args);
 
+    // Each call gets its own signal: it follows the session's, and also fires
+    // when this call times out, so an abandoned handler can stop its work.
+    const controller = new AbortController();
+    const abort = () => controller.abort();
+    if (signal.aborted) abort();
+    else signal.addEventListener("abort", abort);
+
     try {
       const output = await withTimeout(
-        Promise.resolve(tool.handler(args, { signal, callId, send })),
+        Promise.resolve(
+          tool.handler(args, { signal: controller.signal, callId, send }),
+        ),
         tool.timeoutMs,
         name,
+        abort,
       );
       return {
         callId,
@@ -281,6 +295,8 @@ export class ToolRegistry {
         output: { error: message },
         durationMs: Date.now() - startedAt,
       };
+    } finally {
+      signal.removeEventListener("abort", abort);
     }
   }
 }
@@ -289,10 +305,12 @@ function withTimeout<T>(
   promise: Promise<T>,
   ms: number,
   toolName: string,
+  onTimeout: () => void,
 ): Promise<T> {
   if (!Number.isFinite(ms) || ms <= 0) return promise;
   return new Promise<T>((resolve, reject) => {
     const timer = setTimeout(() => {
+      onTimeout();
       reject(
         new RealtimeVoiceError(
           "tool-timeout",
