@@ -334,7 +334,7 @@ function emitServer(event) {
   );
   await session.disconnect();
   check("state returned to idle", session.getState() === "idle");
-  check("transcripts cleared", session.getTranscripts().length === 0);
+  check("transcripts kept after the call", session.getTranscripts().length > 0);
 
   console.log(`\n${assertions - fail.length}/${assertions} passed`);
   if (fail.length) {

@@ -30,6 +30,7 @@ export type RealtimeVoiceDefaults = Partial<
     | "audioRouter"
     | "logLevel"
     | "reconnect"
+    | "replayHistory"
     | "isDevelopment"
   >
 >;
@@ -57,6 +58,7 @@ export function RealtimeVoiceProvider({
     audioRouter,
     logLevel,
     reconnect,
+    replayHistory,
     isDevelopment,
   } = defaults;
 
@@ -82,6 +84,7 @@ export function RealtimeVoiceProvider({
       audioRouter,
       logLevel,
       reconnect,
+      replayHistory,
       isDevelopment,
     }),
     [
@@ -101,6 +104,7 @@ export function RealtimeVoiceProvider({
       audioRouter,
       logLevel,
       reconnect,
+      replayHistory,
       isDevelopment,
     ],
   );

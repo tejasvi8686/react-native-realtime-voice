@@ -4,6 +4,34 @@ All notable changes to this package. Versions follow [semver](https://semver.org
 
 ## [Unreleased]
 
+### Changed
+
+- **Transcripts now outlive the call.** `disconnect()` no longer clears
+  transcripts or the hook's tool calls; the next fresh `connect()` does. If you
+  relied on a hang-up clearing the screen, call `clearTranscripts()` after
+  `disconnect()`.
+- `clearTranscripts()` on the hook now clears the session's copy too, and the
+  tool calls, instead of only the hook's transcript list.
+- Transcripts are ordered by their position in the conversation, not by when
+  their text first arrived. Previously the user's turn often appeared below
+  the agent's reply, because input transcription completes asynchronously.
+- The default input transcription model is now `gpt-4o-mini-transcribe`
+  instead of `whisper-1`. It streams partial text, which `whisper-1` does not,
+  and costs half as much per minute. Pass `transcription` to choose another.
+- The hook applies transcript updates once per animation frame instead of once
+  per token, cutting re-renders during speech. `onTranscript` still fires for
+  every event.
+
+### Added
+
+- History replay on reconnect. A reconnect lands on a new server session, so
+  the agent used to forget the call. The last 20 finished messages are now
+  replayed into it; `replayHistory` changes the limit or disables it.
+- `connect({ resume: true })` continues the previous call's conversation
+  without the greeting.
+- `order` on `TranscriptItem`, a `conversationReset` session event, and
+  `session.clearTranscripts()`.
+
 ### Fixed
 
 - `useRealtimeVoice` stopped receiving session events after a StrictMode

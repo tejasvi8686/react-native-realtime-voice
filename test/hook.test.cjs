@@ -112,6 +112,39 @@ const tree = (label) =>
     updates[updates.length - 1]?.session?.instructions === "prompt b",
   );
 
+  console.log("\n== transcripts: order and persistence ==");
+  await act(async () => {
+    fake.emitServer({ type: "conversation.item.added", item: { id: "u2" } });
+    fake.emitServer({ type: "conversation.item.added", item: { id: "a2" } });
+    // The agent's text lands first, as the API often delivers it.
+    fake.emitServer({
+      type: "response.output_audio_transcript.done",
+      item_id: "a2",
+      transcript: "Sure.",
+    });
+    fake.emitServer({
+      type: "conversation.item.input_audio_transcription.completed",
+      item_id: "u2",
+      transcript: "Can you help?",
+    });
+    await tick();
+  });
+  check(
+    "hook lists items in conversation order",
+    voice.transcripts.map((t) => t.id).join(",") === "a1,u2,a2",
+  );
+
+  await act(async () => {
+    await voice.disconnect();
+  });
+  check("transcripts kept after disconnect", voice.transcripts.length === 3);
+
+  await act(async () => {
+    await voice.connect();
+    await tick();
+  });
+  check("fresh connect clears them", voice.transcripts.length === 0);
+
   console.log("\n== unmount ==");
   await act(async () => {
     renderer.unmount();

@@ -14,14 +14,28 @@ export type SessionCreatedEvent = ServerEventBase & {
 
 export type SessionUpdatedEvent = ServerEventBase & { type: "session.updated" };
 
+type ConversationItem = {
+  id?: string;
+  role?: string;
+  type?: string;
+  content?: { type?: string; text?: string; transcript?: string }[];
+};
+
+/** Beta name for {@link ConversationItemAddedEvent}. */
 export type ConversationItemCreatedEvent = ServerEventBase & {
   type: "conversation.item.created";
-  item?: {
-    id?: string;
-    role?: string;
-    type?: string;
-    content?: { type?: string; text?: string; transcript?: string }[];
-  };
+  previous_item_id?: string | null;
+  item?: ConversationItem;
+};
+
+/**
+ * An item joined the conversation. Arrives in conversation order — for user
+ * audio, when the buffer is committed, before any reply to it.
+ */
+export type ConversationItemAddedEvent = ServerEventBase & {
+  type: "conversation.item.added";
+  previous_item_id?: string | null;
+  item?: ConversationItem;
 };
 
 export type InputTranscriptionDeltaEvent = ServerEventBase & {
@@ -138,6 +152,7 @@ export type ServerEvent =
   | SessionCreatedEvent
   | SessionUpdatedEvent
   | ConversationItemCreatedEvent
+  | ConversationItemAddedEvent
   | InputTranscriptionDeltaEvent
   | InputTranscriptionCompletedEvent
   | InputTranscriptionFailedEvent

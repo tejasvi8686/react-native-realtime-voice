@@ -16,6 +16,7 @@ import {
 import { Emitter } from "./emitter";
 import { RealtimeVoiceError, toRealtimeError } from "./errors";
 import type {
+  ConversationItemAddedEvent,
   ErrorEvent,
   FunctionCallArgumentsDoneEvent,
   InputTranscriptionCompletedEvent,
@@ -110,6 +111,13 @@ export type RealtimeVoiceConfig = {
   /** Default "silent". Use "debug" while integrating. */
   logLevel?: LogLevel;
   reconnect?: ReconnectPolicy;
+  /**
+   * How many recent messages to replay into the fresh server session after a
+   * dropped call reconnects, or on `connect({ resume: true })`, so the agent
+   * keeps the thread. Default 20; `false` disables. Only finished text is
+   * replayed — tool calls and their results are not.
+   */
+  replayHistory?: number | false;
   /** Marks raw-key usage as expected. Defaults to `__DEV__` when available. */
   isDevelopment?: boolean;
 };
@@ -128,11 +136,29 @@ export type SessionEvents = {
   remoteStream: unknown;
   diagnostics: Diagnostics;
   error: RealtimeVoiceError;
+  /** Transcripts were cleared: a fresh `connect()` or `clearTranscripts()`. */
+  conversationReset: void;
   /** Every server event, including ones the package does not interpret. */
   raw: ServerEvent;
 };
 
+export type ConnectOptions = {
+  /**
+   * Continue the previous call's conversation instead of starting fresh:
+   * transcripts are kept and replayed into the new server session (see
+   * `replayHistory`), and the greeting is skipped.
+   */
+  resume?: boolean;
+};
+
 const DEFAULT_MODEL = "gpt-realtime";
+/**
+ * Streams transcript deltas, which `whisper-1` does not, at half its per-minute
+ * price. `gpt-live-transcribe` streams while the user is still talking, at
+ * several times the cost — opt in through `transcription` if captions need it.
+ */
+const DEFAULT_TRANSCRIPTION_MODEL = "gpt-4o-mini-transcribe";
+const DEFAULT_REPLAY_HISTORY = 20;
 const DEFAULT_GREETING =
   "Greet the user warmly in one short sentence, then wait for them to speak.";
 
@@ -162,6 +188,8 @@ export class RealtimeSession extends Emitter<SessionEvents> {
   private connectionGeneration = 0;
   /** A reconnect continues the same call, so it must not greet a second time. */
   private hasGreeted = false;
+  /** Set when the next connection must be seeded with the conversation so far. */
+  private replayPending = false;
   private reconnectAttempts = 0;
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private connectStartedAt: number | null = null;
@@ -171,6 +199,9 @@ export class RealtimeSession extends Emitter<SessionEvents> {
   private agentSpeaking = false;
   private userSpeaking = false;
   private transcripts = new Map<string, TranscriptItem>();
+  /** Conversation position of every item id seen, in the order announced. */
+  private itemOrder = new Map<string, number>();
+  private nextOrder = 0;
   /**
    * Last session.update payload sent on the current connection, used to skip
    * redundant re-sends. Must be cleared whenever a new connection is opened:
@@ -230,9 +261,7 @@ export class RealtimeSession extends Emitter<SessionEvents> {
   }
 
   getTranscripts(): TranscriptItem[] {
-    return [...this.transcripts.values()].sort(
-      (a, b) => a.createdAt - b.createdAt,
-    );
+    return [...this.transcripts.values()].sort((a, b) => a.order - b.order);
   }
 
   getUsage(): UsageSnapshot {
@@ -278,7 +307,7 @@ export class RealtimeSession extends Emitter<SessionEvents> {
     await this.pushSessionUpdate();
   }
 
-  async connect(): Promise<void> {
+  async connect(options: ConnectOptions = {}): Promise<void> {
     if (
       this.state === "connected" ||
       this.state === "connecting" ||
@@ -290,8 +319,20 @@ export class RealtimeSession extends Emitter<SessionEvents> {
     }
     this.wantsConnection = true;
     this.reconnectAttempts = 0;
-    this.hasGreeted = false;
+    const resume = options.resume === true;
+    if (!resume) this.clearTranscripts();
+    this.replayPending = resume;
+    // A resumed call continues a conversation; the user speaks first.
+    this.hasGreeted = resume;
     await this.openConnection(++this.connectionGeneration);
+  }
+
+  /** Forget the conversation so far. Also happens on every fresh `connect()`. */
+  clearTranscripts(): void {
+    this.transcripts.clear();
+    this.itemOrder.clear();
+    this.nextOrder = 0;
+    this.emit("conversationReset", undefined);
   }
 
   async disconnect(): Promise<void> {
@@ -310,8 +351,9 @@ export class RealtimeSession extends Emitter<SessionEvents> {
     this.transport = null;
     transport?.removeAllListeners();
 
+    // Transcripts are kept: the call is over, but the app may still show or
+    // save it, and `connect({ resume: true })` may continue it.
     this.tools.reset();
-    this.transcripts.clear();
     this.agentSpeaking = false;
     this.userSpeaking = false;
     this.micEnabled = true;
@@ -464,6 +506,10 @@ export class RealtimeSession extends Emitter<SessionEvents> {
         ? Date.now() - this.connectStartedAt
         : null;
       this.reconnectAttempts = 0;
+      // First, and synchronously: the history has to precede anything the
+      // user says on the fresh server session, and resolving instructions for
+      // the session.update below may take a while.
+      this.replayHistory(transport);
       void this.pushSessionUpdate().then(() => this.maybeGreet());
       this.audioRouter.activate();
       this.setState("connected");
@@ -550,6 +596,38 @@ export class RealtimeSession extends Emitter<SessionEvents> {
       }) ?? false;
   }
 
+  /**
+   * Seed a fresh server session with the recent conversation. Each reconnect
+   * or resume lands on a new server session that remembers nothing.
+   */
+  private replayHistory(transport: WebRTCTransport): void {
+    if (!this.replayPending) return;
+    this.replayPending = false;
+
+    const limit = this.config.replayHistory ?? DEFAULT_REPLAY_HISTORY;
+    if (limit === false || limit <= 0) return;
+
+    const items = this.getTranscripts()
+      .filter((item) => item.isFinal && item.text.trim())
+      .slice(-limit);
+    for (const item of items) {
+      transport.send({
+        type: "conversation.item.create",
+        item: {
+          type: "message",
+          role: item.role,
+          content: [
+            {
+              type: item.role === "user" ? "input_text" : "output_text",
+              text: item.text,
+            },
+          ],
+        },
+      });
+    }
+    this.logger.debug(`Replayed ${items.length} message(s) into new session`);
+  }
+
   /** Instructions for this connection, resolved at most once until invalidated. */
   private currentInstructions(): Promise<string | undefined> {
     if (!this.instructionsPromise) {
@@ -580,7 +658,9 @@ export class RealtimeSession extends Emitter<SessionEvents> {
       input.turn_detection = this.config.turnDetection;
     }
     if (this.config.transcription !== false) {
-      input.transcription = this.config.transcription ?? { model: "whisper-1" };
+      input.transcription = this.config.transcription ?? {
+        model: DEFAULT_TRANSCRIPTION_MODEL,
+      };
     }
     if (this.config.noiseReduction !== false && this.config.noiseReduction) {
       input.noise_reduction = this.config.noiseReduction;
@@ -630,6 +710,16 @@ export class RealtimeSession extends Emitter<SessionEvents> {
     this.emit("raw", event);
 
     switch (event.type) {
+      // These arrive in conversation order, so numbering them as they come is
+      // enough to place every item; previous_item_id adds nothing for items
+      // the server appends itself.
+      case "conversation.item.added":
+      case "conversation.item.created": {
+        const id = (event as ConversationItemAddedEvent).item?.id;
+        if (id) this.orderOf(id);
+        break;
+      }
+
       case "input_audio_buffer.speech_started":
         this.setUserSpeaking(true);
         break;
@@ -888,7 +978,14 @@ export class RealtimeSession extends Emitter<SessionEvents> {
     const existing = this.transcripts.get(id);
     const item: TranscriptItem = existing
       ? { ...existing, text: existing.text + delta, isFinal }
-      : { id, role, text: delta, isFinal, createdAt: Date.now() };
+      : {
+          id,
+          role,
+          text: delta,
+          isFinal,
+          createdAt: Date.now(),
+          order: this.orderOf(id),
+        };
     this.transcripts.set(id, item);
     this.emit("transcript", item);
   }
@@ -906,9 +1003,24 @@ export class RealtimeSession extends Emitter<SessionEvents> {
       text,
       isFinal,
       createdAt: existing?.createdAt ?? Date.now(),
+      order: existing?.order ?? this.orderOf(id),
     };
     this.transcripts.set(id, item);
     this.emit("transcript", item);
+  }
+
+  /**
+   * An item's position in the conversation, assigned when the server
+   * announces it. An item whose announcement was never seen is placed when
+   * its first text arrives.
+   */
+  private orderOf(itemId: string): number {
+    let order = this.itemOrder.get(itemId);
+    if (order === undefined) {
+      order = this.nextOrder++;
+      this.itemOrder.set(itemId, order);
+    }
+    return order;
   }
 
   // -------------------------------------------------------------- reconnection
@@ -950,6 +1062,8 @@ export class RealtimeSession extends Emitter<SessionEvents> {
       }
       const stale = this.transport;
       this.transport = null;
+      // Same call, new server session: carry the conversation across.
+      this.replayPending = true;
       void (stale ? discardTransport(stale) : Promise.resolve()).then(() => {
         if (generation === this.connectionGeneration) {
           void this.openConnection(generation);

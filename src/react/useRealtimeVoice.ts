@@ -9,7 +9,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import type { RealtimeVoiceError } from "../core/errors";
-import { RealtimeSession, type RealtimeVoiceConfig } from "../core/session";
+import {
+  RealtimeSession,
+  type ConnectOptions,
+  type RealtimeVoiceConfig,
+} from "../core/session";
 import type {
   ConnectionState,
   Diagnostics,
@@ -52,6 +56,10 @@ export type UseRealtimeVoiceResult = {
   error: RealtimeVoiceError | null;
 
   // conversation
+  /**
+   * In conversation order. Kept after `disconnect()` so the call can still be
+   * shown or saved; cleared by the next fresh `connect()`.
+   */
   transcripts: TranscriptItem[];
   /** Newest user text, live-updating. */
   userTranscript: string;
@@ -64,7 +72,8 @@ export type UseRealtimeVoiceResult = {
   remoteStream: unknown | null;
 
   // actions
-  connect: () => Promise<void>;
+  /** Pass `{ resume: true }` to continue the previous call's conversation. */
+  connect: (options?: ConnectOptions) => Promise<void>;
   disconnect: () => Promise<void>;
   interrupt: () => void;
   toggleMic: () => void;
@@ -76,6 +85,7 @@ export type UseRealtimeVoiceResult = {
    * changed. Otherwise a function runs once per connection.
    */
   refreshInstructions: () => Promise<void>;
+  /** Clear transcripts and tool calls, in the session as well as here. */
   clearTranscripts: () => void;
   clearError: () => void;
   /** Escape hatch for advanced use. */
@@ -121,6 +131,18 @@ export function useRealtimeVoice(
 
   // Subscribe once. Handlers read from the ref so they never go stale.
   useEffect(() => {
+    // Transcript deltas arrive per token. As separate state updates they would
+    // re-render the screen at token rate, so they are applied once per frame.
+    // onTranscript still sees every event as it arrives.
+    let pending: TranscriptItem[] = [];
+    let cancelFlush: (() => void) | null = null;
+    const flush = () => {
+      cancelFlush = null;
+      const batch = pending;
+      pending = [];
+      setTranscripts((prev) => batch.reduce(upsertTranscript, prev));
+    };
+
     const offs = [
       session.on("stateChange", (next) => {
         setState(next);
@@ -132,8 +154,16 @@ export function useRealtimeVoice(
       session.on("agentSpeechStart", () => setAgentSpeaking(true)),
       session.on("agentSpeechStop", () => setAgentSpeaking(false)),
       session.on("transcript", (item) => {
-        setTranscripts((prev) => upsertById(prev, item));
+        pending.push(item);
+        if (!cancelFlush) cancelFlush = scheduleFrame(flush);
         optionsRef.current.onTranscript?.(item);
+      }),
+      session.on("conversationReset", () => {
+        pending = [];
+        cancelFlush?.();
+        cancelFlush = null;
+        setTranscripts([]);
+        setToolCalls([]);
       }),
       session.on("toolCall", (invocation) => {
         setToolCalls((prev) => upsertByCallId(prev, invocation));
@@ -151,7 +181,15 @@ export function useRealtimeVoice(
         optionsRef.current.onError?.(e);
       }),
     ];
-    return () => offs.forEach((off) => off());
+    return () => {
+      offs.forEach((off) => off());
+      // Apply what is buffered rather than drop it: on a StrictMode or Fast
+      // Refresh re-run the component is still mounted and shows the call.
+      if (cancelFlush) {
+        cancelFlush();
+        flush();
+      }
+    };
   }, [session]);
 
   // Tear down on unmount. Deferred one tick because StrictMode and Fast Refresh
@@ -209,15 +247,17 @@ export function useRealtimeVoice(
     if (instructionsText !== null) void session.refreshInstructions();
   }, [session, instructionsText]);
 
-  const connect = useCallback(async () => {
-    setError(null);
-    await session.connect();
-  }, [session]);
+  const connect = useCallback(
+    async (connectOptions?: ConnectOptions) => {
+      setError(null);
+      await session.connect(connectOptions);
+    },
+    [session],
+  );
 
+  // Transcripts and tool calls stay; the next fresh connect() clears them.
   const disconnect = useCallback(async () => {
     await session.disconnect();
-    setTranscripts([]);
-    setToolCalls([]);
     setRemoteStream(null);
     setMicEnabledState(true);
     setUserSpeaking(false);
@@ -259,7 +299,10 @@ export function useRealtimeVoice(
     [session],
   );
 
-  const clearTranscripts = useCallback(() => setTranscripts([]), []);
+  const clearTranscripts = useCallback(
+    () => session.clearTranscripts(),
+    [session],
+  );
   const clearError = useCallback(() => setError(null), []);
 
   const userTranscript = useMemo(
@@ -341,15 +384,38 @@ function stripUndefined<T extends Record<string, unknown>>(
   return out as Partial<T>;
 }
 
-function upsertById(
+/** Replace in place, or insert at the item's position in the conversation. */
+function upsertTranscript(
   list: TranscriptItem[],
   item: TranscriptItem,
 ): TranscriptItem[] {
-  const index = list.findIndex((i) => i.id === item.id);
-  if (index === -1) return [...list, item];
   const next = list.slice();
-  next[index] = item;
+  const index = list.findIndex((i) => i.id === item.id);
+  if (index !== -1) {
+    next[index] = item;
+    return next;
+  }
+  const before = list.findIndex((i) => i.order > item.order);
+  if (before === -1) next.push(item);
+  else next.splice(before, 0, item);
   return next;
+}
+
+/**
+ * Run `fn` on the next animation frame where there is one (React Native,
+ * browsers), else after ~16ms. Returns a cancel function.
+ */
+function scheduleFrame(fn: () => void): () => void {
+  const g = globalThis as {
+    requestAnimationFrame?: (callback: () => void) => number;
+    cancelAnimationFrame?: (handle: number) => void;
+  };
+  if (g.requestAnimationFrame && g.cancelAnimationFrame) {
+    const handle = g.requestAnimationFrame(fn);
+    return () => g.cancelAnimationFrame?.(handle);
+  }
+  const timer = setTimeout(fn, 16);
+  return () => clearTimeout(timer);
 }
 
 function upsertByCallId(

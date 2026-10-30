@@ -16,6 +16,7 @@ const SUITES = [
   "session.test.cjs",
   "auth.test.cjs",
   "regressions.test.cjs",
+  "continuity.test.cjs",
   "hook.test.cjs",
 ];
 
